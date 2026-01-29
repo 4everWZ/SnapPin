@@ -81,22 +81,26 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
       break;
     }
     case kTrayCallbackMessage: {
+      const UINT tray_msg = static_cast<UINT>(LOWORD(lparam));
       if (g_config_service && g_config_service->DebugEnabled(false)) {
         char buffer[128];
         _snprintf_s(buffer, sizeof(buffer), _TRUNCATE,
-                    "tray cb lparam=0x%08X\n", static_cast<unsigned int>(lparam));
+                    "tray cb wparam=0x%08X lparam=0x%08X msg=0x%04X\n",
+                    static_cast<unsigned int>(wparam),
+                    static_cast<unsigned int>(lparam),
+                    static_cast<unsigned int>(tray_msg));
         OutputDebugStringA(buffer);
       }
-      if (lparam == WM_RBUTTONUP || lparam == WM_RBUTTONDOWN ||
-          lparam == WM_CONTEXTMENU) {
+      if (tray_msg == WM_RBUTTONUP || tray_msg == WM_RBUTTONDOWN ||
+          tray_msg == WM_CONTEXTMENU) {
         POINT pt;
         if (GetCursorPos(&pt)) {
           g_tray.ShowContextMenu(pt);
         }
         return 0;
       }
-      if (lparam == WM_LBUTTONUP || lparam == WM_LBUTTONDBLCLK ||
-          lparam == NIN_SELECT || lparam == NIN_KEYSELECT) {
+      if (tray_msg == WM_LBUTTONUP || tray_msg == WM_LBUTTONDBLCLK ||
+          tray_msg == NIN_SELECT || tray_msg == NIN_KEYSELECT) {
         if (g_settings) {
           g_settings->Show();
         }
