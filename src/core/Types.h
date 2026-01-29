@@ -98,7 +98,7 @@ struct GpuFrameHandle { uint64_t h = 0; };
 struct CpuDataRef { void* p = nullptr; };
 
 // ---------- Bitmap ----------
-enum class PixelFormat { RGBA8 };
+enum class PixelFormat { RGBA8, BGRA8 };
 
 struct CpuBitmap {
   PixelFormat format = PixelFormat::RGBA8;

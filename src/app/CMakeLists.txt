@@ -1,5 +1,7 @@
 add_executable(snappin_app
   AppMain.cpp
+  CaptureFreeze.cpp
+  CaptureFreeze.h
   SingleInstance.cpp
   SingleInstance.h
   TrayIcon.cpp

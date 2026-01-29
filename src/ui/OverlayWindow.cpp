@@ -6,18 +6,41 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 
 namespace snappin {
 namespace {
 
 const wchar_t kOverlayClassName[] = L"SnapPinOverlay";
 const BYTE kOverlayAlpha = 170;
+const float kOverlayDimFactor = 0.55f;
 const int kBorderPx = 2;
 
 POINT ClientToScreenPoint(HWND hwnd, POINT pt_client) {
   POINT pt = pt_client;
   ClientToScreen(hwnd, &pt);
   return pt;
+}
+
+void DrawFrozenFrame(HDC hdc, const RECT& rc, const uint8_t* pixels, int32_t width,
+                     int32_t height) {
+  if (!pixels || width <= 0 || height <= 0) {
+    return;
+  }
+
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = width;
+  bmi.bmiHeader.biHeight = -height;
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+
+  int dst_w = rc.right - rc.left;
+  int dst_h = rc.bottom - rc.top;
+  SetStretchBltMode(hdc, HALFTONE);
+  StretchDIBits(hdc, 0, 0, dst_w, dst_h, 0, 0, width, height, pixels, &bmi,
+                DIB_RGB_COLORS, SRCCOPY);
 }
 
 } // namespace
@@ -47,7 +70,7 @@ bool OverlayWindow::Create(HINSTANCE instance) {
     return false;
   }
 
-  SetLayeredWindowAttributes(hwnd_, 0, kOverlayAlpha, LWA_ALPHA);
+  UpdateOverlayAlpha();
   return true;
 }
 
@@ -74,10 +97,23 @@ void OverlayWindow::ShowForCurrentMonitor() {
     return;
   }
 
-  monitor_origin_.x = mi.rcMonitor.left;
-  monitor_origin_.y = mi.rcMonitor.top;
-  monitor_size_.cx = mi.rcMonitor.right - mi.rcMonitor.left;
-  monitor_size_.cy = mi.rcMonitor.bottom - mi.rcMonitor.top;
+  RectPX rect;
+  rect.x = mi.rcMonitor.left;
+  rect.y = mi.rcMonitor.top;
+  rect.w = mi.rcMonitor.right - mi.rcMonitor.left;
+  rect.h = mi.rcMonitor.bottom - mi.rcMonitor.top;
+  ShowForRect(rect);
+}
+
+void OverlayWindow::ShowForRect(const RectPX& rect) {
+  if (!hwnd_) {
+    return;
+  }
+  SetClickThrough(false);
+  monitor_origin_.x = rect.x;
+  monitor_origin_.y = rect.y;
+  monitor_size_.cx = rect.w;
+  monitor_size_.cy = rect.h;
 
   SetWindowPos(hwnd_, HWND_TOPMOST, monitor_origin_.x, monitor_origin_.y,
                monitor_size_.cx, monitor_size_.cy, SWP_SHOWWINDOW);
@@ -100,6 +136,7 @@ void OverlayWindow::Hide() {
   visible_ = false;
   dragging_ = false;
   has_selection_ = false;
+  ClearFrozenFrame();
 }
 
 bool OverlayWindow::IsVisible() const { return visible_; }
@@ -107,6 +144,45 @@ bool OverlayWindow::IsVisible() const { return visible_; }
 void OverlayWindow::SetCallbacks(SelectCallback on_select, CancelCallback on_cancel) {
   on_select_ = std::move(on_select);
   on_cancel_ = std::move(on_cancel);
+}
+
+void OverlayWindow::SetFrozenFrame(std::shared_ptr<std::vector<uint8_t>> pixels,
+                                   const SizePX& size_px, int32_t stride_bytes) {
+  frozen_pixels_ = std::move(pixels);
+  frozen_size_px_ = size_px;
+  frozen_stride_ = stride_bytes;
+  frozen_active_ = frozen_pixels_ && frozen_size_px_.w > 0 && frozen_size_px_.h > 0 &&
+                   frozen_stride_ >= frozen_size_px_.w * 4;
+  frozen_dimmed_.reset();
+  if (frozen_active_) {
+    const size_t total = static_cast<size_t>(frozen_stride_) *
+                         static_cast<size_t>(frozen_size_px_.h);
+    auto dimmed = std::make_shared<std::vector<uint8_t>>();
+    dimmed->resize(total);
+    const uint8_t* src = frozen_pixels_->data();
+    uint8_t* dst = dimmed->data();
+    for (size_t i = 0; i < total; i += 4) {
+      dst[i + 0] = static_cast<uint8_t>(src[i + 0] * kOverlayDimFactor);
+      dst[i + 1] = static_cast<uint8_t>(src[i + 1] * kOverlayDimFactor);
+      dst[i + 2] = static_cast<uint8_t>(src[i + 2] * kOverlayDimFactor);
+      dst[i + 3] = 0xFF;
+    }
+    frozen_dimmed_ = std::move(dimmed);
+  }
+  UpdateOverlayAlpha();
+  UpdateMaskRegion();
+  Invalidate();
+}
+
+void OverlayWindow::ClearFrozenFrame() {
+  frozen_pixels_.reset();
+  frozen_dimmed_.reset();
+  frozen_size_px_ = {};
+  frozen_stride_ = 0;
+  frozen_active_ = false;
+  UpdateOverlayAlpha();
+  UpdateMaskRegion();
+  Invalidate();
 }
 
 LRESULT CALLBACK OverlayWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
@@ -175,18 +251,56 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       if (hdc) {
         RECT rc;
         GetClientRect(hwnd_, &rc);
-        HBRUSH bg = CreateSolidBrush(RGB(0, 0, 0));
-        FillRect(hdc, &rc, bg);
-        DeleteObject(bg);
-
-        if (dragging_ || has_selection_) {
+        RECT sel = {};
+        bool show_sel = dragging_ || has_selection_;
+        if (show_sel) {
           RectPX rect = ActiveRectPx();
-          RECT sel;
           sel.left = rect.x - monitor_origin_.x;
           sel.top = rect.y - monitor_origin_.y;
           sel.right = sel.left + rect.w;
           sel.bottom = sel.top + rect.h;
+        }
 
+        if (frozen_active_ && frozen_pixels_ && frozen_dimmed_) {
+          DrawFrozenFrame(hdc, rc, frozen_dimmed_->data(), frozen_size_px_.w,
+                          frozen_size_px_.h);
+          if (show_sel) {
+            RECT bright = sel;
+            if (bright.left < 0) {
+              bright.left = 0;
+            }
+            if (bright.top < 0) {
+              bright.top = 0;
+            }
+            if (bright.right > rc.right) {
+              bright.right = rc.right;
+            }
+            if (bright.bottom > rc.bottom) {
+              bright.bottom = rc.bottom;
+            }
+            int bw = bright.right - bright.left;
+            int bh = bright.bottom - bright.top;
+            if (bw > 0 && bh > 0) {
+              BITMAPINFO bmi = {};
+              bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+              bmi.bmiHeader.biWidth = frozen_size_px_.w;
+              bmi.bmiHeader.biHeight = -frozen_size_px_.h;
+              bmi.bmiHeader.biPlanes = 1;
+              bmi.bmiHeader.biBitCount = 32;
+              bmi.bmiHeader.biCompression = BI_RGB;
+              StretchDIBits(hdc, bright.left, bright.top, bw, bh,
+                            bright.left, bright.top, bw, bh,
+                            frozen_pixels_->data(), &bmi, DIB_RGB_COLORS,
+                            SRCCOPY);
+            }
+          }
+        } else {
+          HBRUSH bg = CreateSolidBrush(RGB(0, 0, 0));
+          FillRect(hdc, &rc, bg);
+          DeleteObject(bg);
+        }
+
+        if (show_sel) {
           HPEN pen = CreatePen(PS_SOLID, kBorderPx, RGB(255, 255, 255));
           HGDIOBJ old_pen = SelectObject(hdc, pen);
           HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
@@ -305,6 +419,10 @@ void OverlayWindow::UpdateMaskRegion() {
     return;
   }
 
+  if (frozen_active_) {
+    SetWindowRgn(hwnd_, nullptr, TRUE);
+    return;
+  }
   if (dragging_ || has_selection_) {
     RectPX rect = ActiveRectPx();
     RECT sel;
@@ -345,6 +463,14 @@ void OverlayWindow::SetClickThrough(bool enabled) {
   SetWindowLongPtrW(hwnd_, GWL_EXSTYLE, ex);
   SetWindowPos(hwnd_, nullptr, 0, 0, 0, 0,
                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+}
+
+void OverlayWindow::UpdateOverlayAlpha() {
+  if (!hwnd_) {
+    return;
+  }
+  BYTE alpha = frozen_active_ ? 255 : kOverlayAlpha;
+  SetLayeredWindowAttributes(hwnd_, 0, alpha, LWA_ALPHA);
 }
 
 } // namespace snappin

@@ -1,6 +1,7 @@
 #pragma once
 #include "Types.h"
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -21,6 +22,7 @@ struct Artifact {
 
   std::optional<GpuFrameHandle> base_gpu;
   std::optional<CpuBitmap> base_cpu;
+  std::shared_ptr<std::vector<uint8_t>> base_cpu_storage;
 
   RectPX screen_rect_px{};
   float dpi_scale = 1.0f;
