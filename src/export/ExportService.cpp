@@ -47,6 +47,27 @@ struct DIBSection {
   int32_t stride = 0;
 };
 
+bool TryGetCpuBitmap(const Artifact& art, CpuBitmap* out) {
+  if (!out) {
+    return false;
+  }
+  if (!art.base_cpu.has_value()) {
+    return false;
+  }
+  if (!art.base_cpu_storage || art.base_cpu_storage->empty()) {
+    return false;
+  }
+  *out = art.base_cpu.value();
+  out->data.p = art.base_cpu_storage->data();
+  if (out->size_px.w <= 0 || out->size_px.h <= 0) {
+    return false;
+  }
+  if (out->stride_bytes < out->size_px.w * 4) {
+    return false;
+  }
+  return out->data.p != nullptr;
+}
+
 DIBSection CreateDib(int32_t width, int32_t height) {
   DIBSection out;
   BITMAPV5HEADER bi = {};
@@ -140,6 +161,49 @@ HGLOBAL CreateDibV5Global(const DIBSection& dib, int32_t width, int32_t height) 
   return hg;
 }
 
+HGLOBAL CreateDibV5GlobalFromPixels(const void* pixels, int32_t width, int32_t height,
+                                    int32_t stride) {
+  if (!pixels || width <= 0 || height <= 0) {
+    return nullptr;
+  }
+  const size_t row_bytes = static_cast<size_t>(width) * 4;
+  const size_t image_bytes = row_bytes * static_cast<size_t>(height);
+  const size_t total_bytes = sizeof(BITMAPV5HEADER) + image_bytes;
+
+  BITMAPV5HEADER header = {};
+  header.bV5Size = sizeof(header);
+  header.bV5Width = width;
+  header.bV5Height = -height;
+  header.bV5Planes = 1;
+  header.bV5BitCount = 32;
+  header.bV5Compression = BI_BITFIELDS;
+  header.bV5RedMask = 0x00FF0000;
+  header.bV5GreenMask = 0x0000FF00;
+  header.bV5BlueMask = 0x000000FF;
+  header.bV5AlphaMask = 0xFF000000;
+
+  HGLOBAL hg = GlobalAlloc(GMEM_MOVEABLE, total_bytes);
+  if (!hg) {
+    return nullptr;
+  }
+  void* mem = GlobalLock(hg);
+  if (!mem) {
+    GlobalFree(hg);
+    return nullptr;
+  }
+
+  memcpy(mem, &header, sizeof(header));
+  BYTE* dst = reinterpret_cast<BYTE*>(mem) + sizeof(header);
+  const BYTE* src = reinterpret_cast<const BYTE*>(pixels);
+  for (int32_t y = 0; y < height; ++y) {
+    memcpy(dst + static_cast<size_t>(y) * row_bytes,
+           src + static_cast<size_t>(y) * stride, row_bytes);
+  }
+
+  GlobalUnlock(hg);
+  return hg;
+}
+
 bool EnsureDirForFile(const std::wstring& path, Error* err) {
   size_t pos = path.find_last_of(L"\\/");
   if (pos == std::wstring::npos) {
@@ -181,8 +245,8 @@ bool EnsureDirForFile(const std::wstring& path, Error* err) {
   return true;
 }
 
-Result<std::wstring> SavePngFromDib(const DIBSection& dib, const RectPX& rect,
-                                    const std::wstring& path) {
+Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_t height,
+                                       int32_t stride, const std::wstring& path) {
   Error err;
   if (!EnsureDirForFile(path, &err)) {
     return Result<std::wstring>::Fail(err);
@@ -218,9 +282,10 @@ Result<std::wstring> SavePngFromDib(const DIBSection& dib, const RectPX& rect,
     return Result<std::wstring>::Fail(err);
   }
 
-  hr = factory->CreateBitmapFromMemory(rect.w, rect.h, GUID_WICPixelFormat32bppBGRA,
-                                       dib.stride, rect.h * dib.stride,
-                                       reinterpret_cast<BYTE*>(dib.bits), &bitmap);
+  hr = factory->CreateBitmapFromMemory(width, height, GUID_WICPixelFormat32bppBGRA,
+                                       stride, height * stride,
+                                       reinterpret_cast<BYTE*>(const_cast<void*>(pixels)),
+                                       &bitmap);
   if (FAILED(hr)) {
     err.code = ERR_ENCODE_IMAGE_FAILED;
     err.message = "Encode failed";
@@ -335,7 +400,7 @@ Result<std::wstring> SavePngFromDib(const DIBSection& dib, const RectPX& rect,
     return Result<std::wstring>::Fail(err);
   }
 
-  hr = frame->SetSize(rect.w, rect.h);
+  hr = frame->SetSize(width, height);
   if (FAILED(hr)) {
     err.code = ERR_ENCODE_IMAGE_FAILED;
     err.message = "Encode failed";
@@ -438,12 +503,49 @@ Result<std::wstring> SavePngFromDib(const DIBSection& dib, const RectPX& rect,
   return Result<std::wstring>::Ok(path);
 }
 
+Result<std::wstring> SavePngFromDib(const DIBSection& dib, const RectPX& rect,
+                                    const std::wstring& path) {
+  return SavePngFromPixels(dib.bits, rect.w, rect.h, dib.stride, path);
+}
+
 } // namespace
 
 Result<void> ExportService::CopyImageToClipboard(const Artifact& art) {
+  Error err;
+  CpuBitmap bmp;
+  if (TryGetCpuBitmap(art, &bmp) && bmp.format == PixelFormat::BGRA8 &&
+      bmp.size_px.w > 0 && bmp.size_px.h > 0) {
+    HGLOBAL hmem = CreateDibV5GlobalFromPixels(
+        bmp.data.p, bmp.size_px.w, bmp.size_px.h, bmp.stride_bytes);
+    if (!hmem) {
+      Error out;
+      out.code = ERR_OUT_OF_MEMORY;
+      out.message = "Clipboard image alloc failed";
+      out.retryable = true;
+      out.detail = "GlobalAlloc";
+      return Result<void>::Fail(out);
+    }
+
+    if (!OpenClipboardWithRetry(nullptr, 200, 5, &err)) {
+      GlobalFree(hmem);
+      return Result<void>::Fail(err);
+    }
+
+    EmptyClipboard();
+    if (!SetClipboardData(CF_DIBV5, hmem)) {
+      CloseClipboard();
+      GlobalFree(hmem);
+      FillWin32Error(&err, ERR_INTERNAL_ERROR, "Clipboard write failed",
+                     GetLastError());
+      return Result<void>::Fail(err);
+    }
+
+    CloseClipboard();
+    return Result<void>::Ok();
+  }
+
   RectPX rect = art.screen_rect_px;
   if (rect.w <= 0 || rect.h <= 0) {
-    Error err;
     err.code = ERR_TARGET_INVALID;
     err.message = "Invalid artifact";
     err.retryable = false;
@@ -451,7 +553,6 @@ Result<void> ExportService::CopyImageToClipboard(const Artifact& art) {
     return Result<void>::Fail(err);
   }
 
-  Error err;
   DIBSection dib;
   if (!CaptureRegionToDib(rect, &dib, &err)) {
     return Result<void>::Fail(err);
@@ -505,6 +606,13 @@ Result<std::wstring> ExportService::SaveImage(const Artifact& art,
     err.retryable = false;
     err.detail = "path_empty";
     return Result<std::wstring>::Fail(err);
+  }
+
+  CpuBitmap bmp;
+  if (TryGetCpuBitmap(art, &bmp) && bmp.format == PixelFormat::BGRA8 &&
+      bmp.size_px.w > 0 && bmp.size_px.h > 0) {
+    return SavePngFromPixels(bmp.data.p, bmp.size_px.w, bmp.size_px.h,
+                             bmp.stride_bytes, options.path);
   }
 
   // Placeholder: recapture using GDI until GPU frames are wired.

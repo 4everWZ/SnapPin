@@ -3,6 +3,7 @@
 #include "ArtifactStore.h"
 #include "ConfigService.h"
 #include "CaptureService.h"
+#include "CaptureFreeze.h"
 #include "ExportService.h"
 #include "KeybindingsService.h"
 #include "SingleInstance.h"
@@ -19,7 +20,9 @@
 #include <psapi.h>
 
 #include <cstdio>
+#include <cstring>
 #include <memory>
+#include <vector>
 
 namespace {
 const wchar_t kMainWindowClass[] = L"SnapPinHiddenWindow";
@@ -41,6 +44,78 @@ std::unique_ptr<snappin::OverlayWindow> g_overlay;
 std::unique_ptr<snappin::ToolbarWindow> g_toolbar;
 std::unique_ptr<snappin::StatsService> g_stats;
 std::unique_ptr<snappin::SettingsWindow> g_settings;
+
+std::optional<snappin::CpuBitmap> CropFrozenFrame(
+    const snappin::FrozenFrame& frozen, const snappin::RectPX& selection,
+    std::shared_ptr<std::vector<uint8_t>>* storage_out,
+    snappin::RectPX* out_rect) {
+  if (!storage_out) {
+    return std::nullopt;
+  }
+  if (!frozen.pixels || frozen.pixels->empty()) {
+    return std::nullopt;
+  }
+
+  int32_t rel_x = selection.x - frozen.screen_rect_px.x;
+  int32_t rel_y = selection.y - frozen.screen_rect_px.y;
+  int32_t w = selection.w;
+  int32_t h = selection.h;
+
+  if (rel_x < 0) {
+    w += rel_x;
+    rel_x = 0;
+  }
+  if (rel_y < 0) {
+    h += rel_y;
+    rel_y = 0;
+  }
+
+  if (rel_x + w > frozen.size_px.w) {
+    w = frozen.size_px.w - rel_x;
+  }
+  if (rel_y + h > frozen.size_px.h) {
+    h = frozen.size_px.h - rel_y;
+  }
+
+  if (w <= 0 || h <= 0) {
+    return std::nullopt;
+  }
+
+  const int32_t src_stride = frozen.stride_bytes;
+  const int32_t dst_stride = w * 4;
+  const size_t row_bytes = static_cast<size_t>(dst_stride);
+  const size_t total = row_bytes * static_cast<size_t>(h);
+
+  auto storage = std::make_shared<std::vector<uint8_t>>();
+  storage->resize(total);
+
+  const uint8_t* src_base =
+      reinterpret_cast<const uint8_t*>(frozen.pixels->data());
+  uint8_t* dst_base = storage->data();
+
+  const size_t src_row_offset = static_cast<size_t>(rel_x) * 4;
+  for (int32_t y = 0; y < h; ++y) {
+    const uint8_t* src =
+        src_base + static_cast<size_t>(rel_y + y) * src_stride + src_row_offset;
+    uint8_t* dst = dst_base + static_cast<size_t>(y) * dst_stride;
+    std::memcpy(dst, src, row_bytes);
+  }
+
+  if (out_rect) {
+    out_rect->x = frozen.screen_rect_px.x + rel_x;
+    out_rect->y = frozen.screen_rect_px.y + rel_y;
+    out_rect->w = w;
+    out_rect->h = h;
+  }
+
+  snappin::CpuBitmap bmp;
+  bmp.format = snappin::PixelFormat::BGRA8;
+  bmp.size_px = snappin::SizePX{w, h};
+  bmp.stride_bytes = dst_stride;
+  bmp.data.p = storage->data();
+  *storage_out = std::move(storage);
+  return bmp;
+}
 
 LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   if (msg == g_taskbar_created_msg) {
@@ -202,8 +277,52 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     g_overlay->SetCallbacks(
         [](const snappin::RectPX& rect) {
           g_runtime_state.overlay_visible = false;
-          if (g_capture_service && g_artifact_store) {
-            ULONGLONG t0 = GetTickCount64();
+          ULONGLONG t0 = GetTickCount64();
+          bool captured = false;
+
+          std::optional<snappin::FrozenFrame> frozen =
+              snappin::ConsumeFrozenFrame();
+          if (frozen.has_value()) {
+            std::shared_ptr<std::vector<uint8_t>> storage;
+            snappin::RectPX actual_rect = rect;
+            std::optional<snappin::CpuBitmap> bmp =
+                CropFrozenFrame(*frozen, rect, &storage, &actual_rect);
+            if (bmp.has_value() && g_artifact_store) {
+              ULONGLONG t1 = GetTickCount64();
+              if (g_stats) {
+                g_stats->SetCaptureOnceMs(static_cast<double>(t1 - t0));
+              }
+              snappin::Artifact artifact;
+              artifact.artifact_id = g_artifact_store->NextId();
+              artifact.kind = snappin::ArtifactKind::CAPTURE;
+              artifact.base_cpu = *bmp;
+              artifact.base_cpu_storage = std::move(storage);
+              artifact.screen_rect_px = actual_rect;
+              artifact.dpi_scale = 1.0f;
+              g_artifact_store->Put(artifact);
+              g_runtime_state.active_artifact_id = artifact.artifact_id;
+              if (g_config_service && g_config_service->CaptureAutoShowToolbar(true) &&
+                  g_toolbar) {
+                g_toolbar->ShowAtRect(actual_rect);
+              }
+              char buffer[160];
+              _snprintf_s(buffer, sizeof(buffer), _TRUNCATE,
+                          "capture ok %dx%d artifact=%llu\n", bmp->size_px.w,
+                          bmp->size_px.h,
+                          static_cast<unsigned long long>(artifact.artifact_id.value));
+              OutputDebugStringA(buffer);
+              if (g_config_service && g_action_dispatcher &&
+                  g_config_service->CaptureAutoCopyToClipboard(true)) {
+                snappin::ActionInvoke invoke;
+                invoke.id = "export.copy_image";
+                g_action_dispatcher->Invoke(invoke);
+              }
+              captured = true;
+            } else {
+              OutputDebugStringA("capture freeze crop failed\n");
+            }
+          }
+          if (!captured && g_capture_service && g_artifact_store) {
             snappin::CaptureTarget target;
             target.type = snappin::CaptureTargetType::REGION;
             target.region_px = rect;
@@ -238,21 +357,27 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                 invoke.id = "export.copy_image";
                 g_action_dispatcher->Invoke(invoke);
               }
+              captured = true;
             } else {
               OutputDebugStringA("capture failed\n");
             }
-            PROCESS_MEMORY_COUNTERS_EX pmc = {};
-            if (GetProcessMemoryInfo(GetCurrentProcess(),
-                                     reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc),
-                                     sizeof(pmc))) {
-              if (g_stats) {
-                g_stats->SetWorkingSetBytes(pmc.WorkingSetSize);
-              }
+          }
+
+          PROCESS_MEMORY_COUNTERS_EX pmc = {};
+          if (GetProcessMemoryInfo(GetCurrentProcess(),
+                                   reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc),
+                                   sizeof(pmc))) {
+            if (g_stats) {
+              g_stats->SetWorkingSetBytes(pmc.WorkingSetSize);
             }
           }
         },
         []() {
           g_runtime_state.overlay_visible = false;
+          snappin::ClearFrozenFrame();
+          if (g_overlay) {
+            g_overlay->ClearFrozenFrame();
+          }
           OutputDebugStringA("overlay cancel\n");
         });
   }

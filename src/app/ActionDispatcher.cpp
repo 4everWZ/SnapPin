@@ -1,5 +1,6 @@
 #include "ActionDispatcher.h"
 
+#include "CaptureFreeze.h"
 #include "ConfigService.h"
 #include "ErrorCodes.h"
 #include "OverlayWindow.h"
@@ -241,11 +242,27 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
       err.detail = "overlay_null";
       return Result<void>::Fail(err);
     }
-    overlay_->ShowForCurrentMonitor();
+    Result<void> freeze = PrepareFrozenFrameForCursorMonitor();
+    if (!freeze.ok) {
+      OutputDebugStringA("Capture freeze failed\n");
+      ClearFrozenFrame();
+    }
+    const FrozenFrame* frozen = PeekFrozenFrame();
+    if (overlay_) {
+      if (frozen && frozen->pixels) {
+        overlay_->SetFrozenFrame(frozen->pixels, frozen->size_px,
+                                 frozen->stride_bytes);
+        overlay_->ShowForRect(frozen->screen_rect_px);
+      } else {
+        overlay_->ClearFrozenFrame();
+        overlay_->ShowForCurrentMonitor();
+      }
+    }
     if (state_) {
       state_->overlay_visible = overlay_->IsVisible();
     }
     if (!overlay_->IsVisible()) {
+      ClearFrozenFrame();
       Error err;
       err.code = ERR_INTERNAL_ERROR;
       err.message = "Overlay show failed";
