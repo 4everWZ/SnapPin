@@ -2,9 +2,18 @@
 
 #include <shellapi.h>
 
+#include <cstdio>
+
 namespace snappin {
 namespace {
 const wchar_t kTooltipText[] = L"SnapPin";
+
+void LogLastError(const char* prefix, DWORD err) {
+  char buffer[160];
+  _snprintf_s(buffer, sizeof(buffer), _TRUNCATE, "%s (err=%lu)\n", prefix,
+              static_cast<unsigned long>(err));
+  OutputDebugStringA(buffer);
+}
 }
 
 TrayIcon::~TrayIcon() { Cleanup(); }
@@ -59,12 +68,15 @@ bool TrayIcon::AddIcon() {
   }
 
   if (!Shell_NotifyIconW(NIM_ADD, &nid_)) {
+    LogLastError("tray add failed", GetLastError());
     visible_ = false;
     return false;
   }
 
   nid_.uVersion = NOTIFYICON_VERSION_4;
-  Shell_NotifyIconW(NIM_SETVERSION, &nid_);
+  if (!Shell_NotifyIconW(NIM_SETVERSION, &nid_)) {
+    LogLastError("tray setversion failed", GetLastError());
+  }
   visible_ = true;
   return true;
 }
