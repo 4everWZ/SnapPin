@@ -5,6 +5,7 @@
 #include <windowsx.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 
@@ -15,12 +16,7 @@ const wchar_t kOverlayClassName[] = L"SnapPinOverlay";
 const BYTE kOverlayAlpha = 170;
 const float kOverlayDimFactor = 0.55f;
 const int kBorderPx = 2;
-
-POINT ClientToScreenPoint(HWND hwnd, POINT pt_client) {
-  POINT pt = pt_client;
-  ClientToScreen(hwnd, &pt);
-  return pt;
-}
+const int kEscapeHotkeyId = 42;
 
 void DrawFrozenFrame(HDC hdc, const RECT& rc, const uint8_t* pixels, int32_t width,
                      int32_t height) {
@@ -41,6 +37,19 @@ void DrawFrozenFrame(HDC hdc, const RECT& rc, const uint8_t* pixels, int32_t wid
   SetStretchBltMode(hdc, HALFTONE);
   StretchDIBits(hdc, 0, 0, dst_w, dst_h, 0, 0, width, height, pixels, &bmi,
                 DIB_RGB_COLORS, SRCCOPY);
+}
+
+RectPX RectFromScreenPoints(const PointPX& a, const POINT& b) {
+  int32_t x1 = a.x;
+  int32_t y1 = a.y;
+  int32_t x2 = static_cast<int32_t>(b.x);
+  int32_t y2 = static_cast<int32_t>(b.y);
+  RectPX rect;
+  rect.x = std::min(x1, x2);
+  rect.y = std::min(y1, y2);
+  rect.w = std::abs(x2 - x1);
+  rect.h = std::abs(y2 - y1);
+  return rect;
 }
 
 } // namespace
@@ -76,6 +85,7 @@ bool OverlayWindow::Create(HINSTANCE instance) {
 
 void OverlayWindow::Destroy() {
   if (hwnd_) {
+    EnsureEscapeHotkey(false);
     DestroyWindow(hwnd_);
     hwnd_ = nullptr;
   }
@@ -110,6 +120,7 @@ void OverlayWindow::ShowForRect(const RectPX& rect) {
     return;
   }
   SetClickThrough(false);
+  EnsureEscapeHotkey(true);
   monitor_origin_.x = rect.x;
   monitor_origin_.y = rect.y;
   monitor_size_.cx = rect.w;
@@ -133,6 +144,7 @@ void OverlayWindow::Hide() {
     return;
   }
   ShowWindow(hwnd_, SW_HIDE);
+  EnsureEscapeHotkey(false);
   visible_ = false;
   dragging_ = false;
   has_selection_ = false;
@@ -205,6 +217,13 @@ LRESULT CALLBACK OverlayWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
 
 LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
   switch (msg) {
+    case WM_HOTKEY: {
+      if (wparam == kEscapeHotkeyId) {
+        Cancel();
+        return 0;
+      }
+      break;
+    }
     case WM_DPICHANGED: {
       RECT* suggested = reinterpret_cast<RECT*>(lparam);
       if (suggested) {
@@ -251,18 +270,40 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       if (hdc) {
         RECT rc;
         GetClientRect(hwnd_, &rc);
+        const int rc_w = rc.right - rc.left;
+        const int rc_h = rc.bottom - rc.top;
+        HDC mem_dc = CreateCompatibleDC(hdc);
+        HBITMAP mem_bmp = nullptr;
+        HGDIOBJ old_bmp = nullptr;
+        if (mem_dc && rc_w > 0 && rc_h > 0) {
+          mem_bmp = CreateCompatibleBitmap(hdc, rc_w, rc_h);
+          if (mem_bmp) {
+            old_bmp = SelectObject(mem_dc, mem_bmp);
+          }
+        }
+
+        HDC draw_dc = (mem_dc && mem_bmp) ? mem_dc : hdc;
+
+        RectPX rect_screen = ActiveRectPx();
+        if (dragging_) {
+          POINT cur = {};
+          if (GetCursorPos(&cur)) {
+            rect_screen = RectFromScreenPoints(start_px_, cur);
+          }
+        }
         RECT sel = {};
         bool show_sel = dragging_ || has_selection_;
         if (show_sel) {
-          RectPX rect = ActiveRectPx();
-          sel.left = rect.x - monitor_origin_.x;
-          sel.top = rect.y - monitor_origin_.y;
-          sel.right = sel.left + rect.w;
-          sel.bottom = sel.top + rect.h;
+          RECT win = {};
+          GetWindowRect(hwnd_, &win);
+          sel.left = rect_screen.x - win.left;
+          sel.top = rect_screen.y - win.top;
+          sel.right = sel.left + rect_screen.w;
+          sel.bottom = sel.top + rect_screen.h;
         }
 
         if (frozen_active_ && frozen_pixels_ && frozen_dimmed_) {
-          DrawFrozenFrame(hdc, rc, frozen_dimmed_->data(), frozen_size_px_.w,
+          DrawFrozenFrame(draw_dc, rc, frozen_dimmed_->data(), frozen_size_px_.w,
                           frozen_size_px_.h);
           if (show_sel) {
             RECT bright = sel;
@@ -281,33 +322,40 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
             int bw = bright.right - bright.left;
             int bh = bright.bottom - bright.top;
             if (bw > 0 && bh > 0) {
-              BITMAPINFO bmi = {};
-              bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-              bmi.bmiHeader.biWidth = frozen_size_px_.w;
-              bmi.bmiHeader.biHeight = -frozen_size_px_.h;
-              bmi.bmiHeader.biPlanes = 1;
-              bmi.bmiHeader.biBitCount = 32;
-              bmi.bmiHeader.biCompression = BI_RGB;
-              StretchDIBits(hdc, bright.left, bright.top, bw, bh,
-                            bright.left, bright.top, bw, bh,
-                            frozen_pixels_->data(), &bmi, DIB_RGB_COLORS,
-                            SRCCOPY);
+              HRGN clip = CreateRectRgn(bright.left, bright.top, bright.right,
+                                        bright.bottom);
+              if (clip) {
+                SelectClipRgn(draw_dc, clip);
+                DrawFrozenFrame(draw_dc, rc, frozen_pixels_->data(),
+                                frozen_size_px_.w, frozen_size_px_.h);
+                SelectClipRgn(draw_dc, nullptr);
+                DeleteObject(clip);
+              }
             }
           }
         } else {
           HBRUSH bg = CreateSolidBrush(RGB(0, 0, 0));
-          FillRect(hdc, &rc, bg);
+          FillRect(draw_dc, &rc, bg);
           DeleteObject(bg);
         }
 
         if (show_sel) {
           HPEN pen = CreatePen(PS_SOLID, kBorderPx, RGB(255, 255, 255));
-          HGDIOBJ old_pen = SelectObject(hdc, pen);
-          HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
-          Rectangle(hdc, sel.left, sel.top, sel.right, sel.bottom);
-          SelectObject(hdc, old_brush);
-          SelectObject(hdc, old_pen);
+          HGDIOBJ old_pen = SelectObject(draw_dc, pen);
+          HGDIOBJ old_brush = SelectObject(draw_dc, GetStockObject(HOLLOW_BRUSH));
+          Rectangle(draw_dc, sel.left, sel.top, sel.right, sel.bottom);
+          SelectObject(draw_dc, old_brush);
+          SelectObject(draw_dc, old_pen);
           DeleteObject(pen);
+        }
+
+        if (draw_dc != hdc) {
+          BitBlt(hdc, 0, 0, rc_w, rc_h, draw_dc, 0, 0, SRCCOPY);
+          SelectObject(mem_dc, old_bmp);
+          DeleteObject(mem_bmp);
+          DeleteDC(mem_dc);
+        } else if (mem_dc) {
+          DeleteDC(mem_dc);
         }
         EndPaint(hwnd_, &ps);
       }
@@ -328,29 +376,65 @@ void OverlayWindow::BeginDrag(POINT pt_client) {
   dragging_ = true;
   has_selection_ = false;
   SetClickThrough(false);
-  POINT screen = ClientToScreenPoint(hwnd_, pt_client);
-  start_px_.x = screen.x;
-  start_px_.y = screen.y;
+  POINT screen = {};
+  if (GetCursorPos(&screen)) {
+    POINT client = screen;
+    ScreenToClient(hwnd_, &client);
+    start_client_px_.x = client.x;
+    start_client_px_.y = client.y;
+    start_px_.x = screen.x;
+    start_px_.y = screen.y;
+  } else {
+    start_client_px_.x = pt_client.x;
+    start_client_px_.y = pt_client.y;
+    start_px_.x = monitor_origin_.x + start_client_px_.x;
+    start_px_.y = monitor_origin_.y + start_client_px_.y;
+  }
+  current_client_px_ = start_client_px_;
   current_px_ = start_px_;
   UpdateMaskRegion();
   Invalidate();
 }
 
 void OverlayWindow::UpdateDrag(POINT pt_client) {
-  POINT screen = ClientToScreenPoint(hwnd_, pt_client);
-  current_px_.x = screen.x;
-  current_px_.y = screen.y;
+  POINT screen = {};
+  if (GetCursorPos(&screen)) {
+    POINT client = screen;
+    ScreenToClient(hwnd_, &client);
+    current_client_px_.x = client.x;
+    current_client_px_.y = client.y;
+    current_px_.x = screen.x;
+    current_px_.y = screen.y;
+  } else {
+    current_client_px_.x = pt_client.x;
+    current_client_px_.y = pt_client.y;
+    current_px_.x = monitor_origin_.x + current_client_px_.x;
+    current_px_.y = monitor_origin_.y + current_client_px_.y;
+  }
   UpdateMaskRegion();
   Invalidate();
 }
 
 void OverlayWindow::EndDrag(POINT pt_client) {
   ReleaseCapture();
-  POINT screen = ClientToScreenPoint(hwnd_, pt_client);
-  current_px_.x = screen.x;
-  current_px_.y = screen.y;
+  POINT screen = {};
+  if (GetCursorPos(&screen)) {
+    POINT client = screen;
+    ScreenToClient(hwnd_, &client);
+    current_client_px_.x = client.x;
+    current_client_px_.y = client.y;
+    current_px_.x = screen.x;
+    current_px_.y = screen.y;
+  } else {
+    current_client_px_.x = pt_client.x;
+    current_client_px_.y = pt_client.y;
+    current_px_.x = monitor_origin_.x + current_client_px_.x;
+    current_px_.y = monitor_origin_.y + current_client_px_.y;
+  }
   RectPX rect = CurrentRectPx();
+  RectPX rect_client = CurrentRectClient();
   selected_rect_px_ = rect;
+  selected_rect_client_px_ = rect_client;
   has_selection_ = true;
   dragging_ = false;
   UpdateMaskRegion();
@@ -391,12 +475,36 @@ RectPX OverlayWindow::CurrentRectPx() const {
   return rect;
 }
 
+RectPX OverlayWindow::CurrentRectClient() const {
+  int32_t x1 = start_client_px_.x;
+  int32_t y1 = start_client_px_.y;
+  int32_t x2 = current_client_px_.x;
+  int32_t y2 = current_client_px_.y;
+
+  RectPX rect;
+  rect.x = std::min(x1, x2);
+  rect.y = std::min(y1, y2);
+  rect.w = std::abs(x2 - x1);
+  rect.h = std::abs(y2 - y1);
+  return rect;
+}
+
 RectPX OverlayWindow::ActiveRectPx() const {
   if (dragging_) {
     return CurrentRectPx();
   }
   if (has_selection_) {
     return selected_rect_px_;
+  }
+  return RectPX{};
+}
+
+RectPX OverlayWindow::ActiveRectClient() const {
+  if (dragging_) {
+    return CurrentRectClient();
+  }
+  if (has_selection_) {
+    return selected_rect_client_px_;
   }
   return RectPX{};
 }
@@ -421,13 +529,14 @@ void OverlayWindow::UpdateMaskRegion() {
 
   if (frozen_active_) {
     SetWindowRgn(hwnd_, nullptr, TRUE);
+    DeleteObject(base);
     return;
   }
   if (dragging_ || has_selection_) {
-    RectPX rect = ActiveRectPx();
+    RectPX rect = ActiveRectClient();
     RECT sel;
-    sel.left = rect.x - monitor_origin_.x;
-    sel.top = rect.y - monitor_origin_.y;
+    sel.left = rect.x;
+    sel.top = rect.y;
     sel.right = sel.left + rect.w;
     sel.bottom = sel.top + rect.h;
 
@@ -471,6 +580,22 @@ void OverlayWindow::UpdateOverlayAlpha() {
   }
   BYTE alpha = frozen_active_ ? 255 : kOverlayAlpha;
   SetLayeredWindowAttributes(hwnd_, 0, alpha, LWA_ALPHA);
+}
+
+void OverlayWindow::EnsureEscapeHotkey(bool enable) {
+  if (!hwnd_) {
+    return;
+  }
+  if (enable && !esc_hotkey_registered_) {
+    if (RegisterHotKey(hwnd_, kEscapeHotkeyId, MOD_NOREPEAT, VK_ESCAPE)) {
+      esc_hotkey_registered_ = true;
+    }
+    return;
+  }
+  if (!enable && esc_hotkey_registered_) {
+    UnregisterHotKey(hwnd_, kEscapeHotkeyId);
+    esc_hotkey_registered_ = false;
+  }
 }
 
 } // namespace snappin

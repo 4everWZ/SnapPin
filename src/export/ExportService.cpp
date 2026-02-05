@@ -7,6 +7,8 @@
 
 #include <wincodec.h>
 
+#include <shlwapi.h>
+
 #include <cstring>
 #include <string>
 #include <vector>
@@ -263,11 +265,11 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
   }
 
   IWICImagingFactory* factory = nullptr;
-  IWICStream* stream = nullptr;
   IWICBitmapEncoder* encoder = nullptr;
   IWICBitmapFrameEncode* frame = nullptr;
   IPropertyBag2* bag = nullptr;
   IWICBitmap* bitmap = nullptr;
+  IStream* file_stream = nullptr;
 
   hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
                         IID_PPV_ARGS(&factory));
@@ -299,21 +301,9 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
     return Result<std::wstring>::Fail(err);
   }
 
-  hr = factory->CreateStream(&stream);
-  if (FAILED(hr)) {
-    err.code = ERR_PATH_NOT_WRITABLE;
-    err.message = "Save path not writable";
-    err.retryable = false;
-    err.detail = "CreateStream";
-    SafeRelease(bitmap);
-    SafeRelease(factory);
-    if (co_uninit) {
-      CoUninitialize();
-    }
-    return Result<std::wstring>::Fail(err);
-  }
-
-  hr = stream->InitializeFromFilename(path.c_str(), STGM_CREATE | STGM_WRITE);
+  hr = SHCreateStreamOnFileEx(path.c_str(),
+                              STGM_CREATE | STGM_WRITE | STGM_SHARE_EXCLUSIVE,
+                              FILE_ATTRIBUTE_NORMAL, TRUE, nullptr, &file_stream);
   if (FAILED(hr)) {
     DWORD last = GetLastError();
     if (HRESULT_FROM_WIN32(ERROR_DISK_FULL) == hr || last == ERROR_DISK_FULL) {
@@ -325,8 +315,10 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
       err.message = "Save path not writable";
       err.retryable = false;
     }
-    err.detail = "InitializeFromFilename";
-    SafeRelease(stream);
+    char buffer[128];
+    _snprintf_s(buffer, sizeof(buffer), _TRUNCATE, "SHCreateStreamOnFileEx hr=0x%08X",
+                static_cast<unsigned int>(hr));
+    err.detail = buffer;
     SafeRelease(bitmap);
     SafeRelease(factory);
     if (co_uninit) {
@@ -341,7 +333,7 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
     err.message = "Encode failed";
     err.retryable = true;
     err.detail = "CreateEncoder";
-    SafeRelease(stream);
+    SafeRelease(file_stream);
     SafeRelease(bitmap);
     SafeRelease(factory);
     if (co_uninit) {
@@ -350,14 +342,14 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
     return Result<std::wstring>::Fail(err);
   }
 
-  hr = encoder->Initialize(stream, WICBitmapEncoderNoCache);
+  hr = encoder->Initialize(file_stream, WICBitmapEncoderNoCache);
   if (FAILED(hr)) {
     err.code = ERR_ENCODE_IMAGE_FAILED;
     err.message = "Encode failed";
     err.retryable = true;
     err.detail = "EncoderInitialize";
     SafeRelease(encoder);
-    SafeRelease(stream);
+    SafeRelease(file_stream);
     SafeRelease(bitmap);
     SafeRelease(factory);
     if (co_uninit) {
@@ -373,7 +365,7 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
     err.retryable = true;
     err.detail = "CreateNewFrame";
     SafeRelease(encoder);
-    SafeRelease(stream);
+    SafeRelease(file_stream);
     SafeRelease(bitmap);
     SafeRelease(factory);
     if (co_uninit) {
@@ -391,7 +383,7 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
     SafeRelease(bag);
     SafeRelease(frame);
     SafeRelease(encoder);
-    SafeRelease(stream);
+    SafeRelease(file_stream);
     SafeRelease(bitmap);
     SafeRelease(factory);
     if (co_uninit) {
@@ -409,7 +401,7 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
     SafeRelease(bag);
     SafeRelease(frame);
     SafeRelease(encoder);
-    SafeRelease(stream);
+    SafeRelease(file_stream);
     SafeRelease(bitmap);
     SafeRelease(factory);
     if (co_uninit) {
@@ -428,7 +420,7 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
     SafeRelease(bag);
     SafeRelease(frame);
     SafeRelease(encoder);
-    SafeRelease(stream);
+    SafeRelease(file_stream);
     SafeRelease(bitmap);
     SafeRelease(factory);
     if (co_uninit) {
@@ -446,7 +438,7 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
     SafeRelease(bag);
     SafeRelease(frame);
     SafeRelease(encoder);
-    SafeRelease(stream);
+    SafeRelease(file_stream);
     SafeRelease(bitmap);
     SafeRelease(factory);
     if (co_uninit) {
@@ -464,7 +456,7 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
     SafeRelease(bag);
     SafeRelease(frame);
     SafeRelease(encoder);
-    SafeRelease(stream);
+    SafeRelease(file_stream);
     SafeRelease(bitmap);
     SafeRelease(factory);
     if (co_uninit) {
@@ -482,7 +474,7 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
     SafeRelease(bag);
     SafeRelease(frame);
     SafeRelease(encoder);
-    SafeRelease(stream);
+    SafeRelease(file_stream);
     SafeRelease(bitmap);
     SafeRelease(factory);
     if (co_uninit) {
@@ -494,7 +486,7 @@ Result<std::wstring> SavePngFromPixels(const void* pixels, int32_t width, int32_
   SafeRelease(bag);
   SafeRelease(frame);
   SafeRelease(encoder);
-  SafeRelease(stream);
+  SafeRelease(file_stream);
   SafeRelease(bitmap);
   SafeRelease(factory);
   if (co_uninit) {

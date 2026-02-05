@@ -378,6 +378,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
           if (g_overlay) {
             g_overlay->ClearFrozenFrame();
           }
+          if (g_toolbar) {
+            g_toolbar->Hide();
+          }
+          if (g_artifact_store) {
+            g_artifact_store->ClearActive();
+          }
+          g_runtime_state.active_artifact_id.reset();
           OutputDebugStringA("overlay cancel\n");
         });
   }

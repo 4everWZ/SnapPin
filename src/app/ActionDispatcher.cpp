@@ -64,6 +64,45 @@ std::wstring DirName(const std::wstring& path) {
   return path.substr(0, pos);
 }
 
+std::wstring GetDesktopDir() {
+  PWSTR desktop = nullptr;
+  HRESULT hr = SHGetKnownFolderPath(FOLDERID_Desktop, KF_FLAG_DEFAULT, nullptr,
+                                    &desktop);
+  if (FAILED(hr) || !desktop) {
+    if (desktop) {
+      CoTaskMemFree(desktop);
+    }
+    return L"";
+  }
+  std::wstring out(desktop);
+  CoTaskMemFree(desktop);
+  return out;
+}
+
+std::wstring SanitizeFileName(const std::wstring& name) {
+  if (name.empty()) {
+    return L"";
+  }
+  std::wstring out = name;
+  for (wchar_t& ch : out) {
+    if (ch < 32 || ch == L'<' || ch == L'>' || ch == L':' || ch == L'"' ||
+        ch == L'/' || ch == L'\\' || ch == L'|' || ch == L'?' || ch == L'*') {
+      ch = L'_';
+    }
+  }
+  while (!out.empty() && (out.back() == L' ' || out.back() == L'.')) {
+    out.pop_back();
+  }
+  return out;
+}
+
+std::wstring BuildAutoSavePath(const std::wstring& dir, const std::wstring& name) {
+  if (dir.empty() || name.empty()) {
+    return L"";
+  }
+  return JoinPath(dir, name + L".png");
+}
+
 bool EnsureDir(const std::wstring& path) {
   if (path.empty()) {
     return false;
@@ -360,6 +399,9 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     if (path.empty()) {
       std::wstring dir = config_service_->ExportSaveDir();
       if (dir.empty()) {
+        dir = GetDesktopDir();
+      }
+      if (dir.empty()) {
         dir = JoinPath(config_service_->RootDir(), L"exports");
       }
       if (!EnsureDir(dir)) {
@@ -375,9 +417,14 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
         pattern = "SnapPin_{yyyyMMdd_HHmmss}_{rand4}";
       }
       std::string filename = ExpandPattern(pattern);
-      path = JoinPath(dir, WidenUtf8(filename) + L".png");
+      std::wstring safe = SanitizeFileName(WidenUtf8(filename));
+      if (safe.empty()) {
+        safe = L"SnapPin";
+      }
+      path = BuildAutoSavePath(dir, safe);
     }
     options.path = path;
+    bool auto_path = !path_param.has_value();
 
     bool open_folder = config_service_->ExportOpenFolderAfterSave(false);
     std::optional<std::string> open_param = FindParam(req, "open_folder");
@@ -395,7 +442,46 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     options.open_folder = open_folder;
 
     Result<std::wstring> saved = exporter_->SaveImage(*art, options);
+    if (!saved.ok && auto_path && saved.error.code == ERR_PATH_NOT_WRITABLE) {
+      std::wstring fallback_dir = GetDesktopDir();
+      if (fallback_dir.empty()) {
+        wchar_t temp_path[MAX_PATH] = {};
+        DWORD len = GetTempPathW(MAX_PATH, temp_path);
+        if (len > 0 && len < MAX_PATH) {
+          fallback_dir.assign(temp_path, temp_path + len);
+          if (!fallback_dir.empty() &&
+              (fallback_dir.back() == L'\\' || fallback_dir.back() == L'/')) {
+            fallback_dir.pop_back();
+          }
+        }
+      }
+      if (!fallback_dir.empty()) {
+        std::wstring file_name = L"SnapPin";
+        std::wstring name_only = path;
+        size_t pos = name_only.find_last_of(L"\\/");
+        if (pos != std::wstring::npos) {
+          name_only = name_only.substr(pos + 1);
+        }
+        if (!name_only.empty()) {
+          size_t dot = name_only.find_last_of(L'.');
+          if (dot != std::wstring::npos) {
+            name_only = name_only.substr(0, dot);
+          }
+          name_only = SanitizeFileName(name_only);
+          if (!name_only.empty()) {
+            file_name = name_only;
+          }
+        }
+        options.path = BuildAutoSavePath(fallback_dir, file_name);
+        saved = exporter_->SaveImage(*art, options);
+      }
+    }
     if (!saved.ok) {
+      char buffer[256];
+      _snprintf_s(buffer, sizeof(buffer), _TRUNCATE,
+                  "save failed code=%s detail=%s\n",
+                  saved.error.code.c_str(), saved.error.detail.c_str());
+      OutputDebugStringA(buffer);
       return Result<void>::Fail(saved.error);
     }
 
