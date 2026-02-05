@@ -5,6 +5,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <cmath>
 #include <cstring>
 #include <string>
 
@@ -117,6 +118,41 @@ Result<FrozenFrame> CaptureFrozenFrameForMonitorRect(const RectPX& rect) {
   return Result<FrozenFrame>::Ok(frame);
 }
 
+RectPX ResolveMonitorRectPx(HMONITOR monitor) {
+  MONITORINFOEXW mi = {};
+  mi.cbSize = sizeof(mi);
+  if (!GetMonitorInfoW(monitor, &mi)) {
+    return RectPX{};
+  }
+
+  int32_t logical_w = mi.rcMonitor.right - mi.rcMonitor.left;
+  int32_t logical_h = mi.rcMonitor.bottom - mi.rcMonitor.top;
+  if (logical_w <= 0 || logical_h <= 0) {
+    return RectPX{};
+  }
+
+  float scale = 1.0f;
+  DEVMODEW dm = {};
+  dm.dmSize = sizeof(dm);
+  if (EnumDisplaySettingsW(mi.szDevice, ENUM_CURRENT_SETTINGS, &dm)) {
+    if (dm.dmPelsWidth > 0 && dm.dmPelsHeight > 0) {
+      float sx = static_cast<float>(dm.dmPelsWidth) / logical_w;
+      float sy = static_cast<float>(dm.dmPelsHeight) / logical_h;
+      float diff = std::fabs(sx - sy);
+      if (diff < 0.05f && (sx > 1.05f || sx < 0.95f)) {
+        scale = sx;
+      }
+    }
+  }
+
+  RectPX rect;
+  rect.x = static_cast<int32_t>(std::lround(mi.rcMonitor.left * scale));
+  rect.y = static_cast<int32_t>(std::lround(mi.rcMonitor.top * scale));
+  rect.w = static_cast<int32_t>(std::lround(logical_w * scale));
+  rect.h = static_cast<int32_t>(std::lround(logical_h * scale));
+  return rect;
+}
+
 } // namespace
 
 Result<void> PrepareFrozenFrameForCursorMonitor() {
@@ -128,19 +164,12 @@ Result<void> PrepareFrozenFrameForCursorMonitor() {
   }
 
   HMONITOR monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST);
-  MONITORINFO mi = {};
-  mi.cbSize = sizeof(mi);
-  if (!GetMonitorInfoW(monitor, &mi)) {
+  RectPX rect = ResolveMonitorRectPx(monitor);
+  if (rect.w <= 0 || rect.h <= 0) {
     Error err;
     FillWin32Error(&err, ERR_CAPTURE_FAILED, "Capture failed", GetLastError());
     return Result<void>::Fail(err);
   }
-
-  RectPX rect;
-  rect.x = mi.rcMonitor.left;
-  rect.y = mi.rcMonitor.top;
-  rect.w = mi.rcMonitor.right - mi.rcMonitor.left;
-  rect.h = mi.rcMonitor.bottom - mi.rcMonitor.top;
 
   Result<FrozenFrame> frame = CaptureFrozenFrameForMonitorRect(rect);
   if (!frame.ok) {

@@ -41,11 +41,14 @@ private:
   void EndDrag(POINT pt_client);
   void Cancel();
   RectPX CurrentRectPx() const;
+  RectPX CurrentRectClient() const;
   RectPX ActiveRectPx() const;
+  RectPX ActiveRectClient() const;
   void UpdateMaskRegion();
   void Invalidate();
   void SetClickThrough(bool enabled);
   void UpdateOverlayAlpha();
+  void EnsureEscapeHotkey(bool enable);
 
   HWND hwnd_ = nullptr;
   HINSTANCE instance_ = nullptr;
@@ -58,7 +61,10 @@ private:
 
   PointPX start_px_{};
   PointPX current_px_{};
+  PointPX start_client_px_{};
+  PointPX current_client_px_{};
   RectPX selected_rect_px_{};
+  RectPX selected_rect_client_px_{};
   float dpi_scale_ = 1.0f;
 
   std::shared_ptr<std::vector<uint8_t>> frozen_pixels_;
@@ -66,6 +72,7 @@ private:
   SizePX frozen_size_px_{};
   int32_t frozen_stride_ = 0;
   bool frozen_active_ = false;
+  bool esc_hotkey_registered_ = false;
 
   SelectCallback on_select_;
   CancelCallback on_cancel_;
