@@ -16,13 +16,15 @@ class IArtifactStore;
 class IExportService;
 class ToolbarWindow;
 class SettingsWindow;
+class PinManager;
 
 class ActionDispatcher final : public IActionDispatcher {
 public:
   ActionDispatcher(IActionRegistry& registry, RuntimeState* state, HWND hwnd,
                    ConfigService* config_service, OverlayWindow* overlay,
                    IArtifactStore* artifacts, IExportService* exporter,
-                   ToolbarWindow* toolbar, SettingsWindow* settings);
+                   ToolbarWindow* toolbar, SettingsWindow* settings,
+                   PinManager* pin_manager);
 
   bool IsEnabled(const std::string& action_id, const RuntimeState& state) override;
   Result<Id64> Invoke(const ActionInvoke& req) override;
@@ -43,6 +45,7 @@ private:
   IExportService* exporter_ = nullptr;
   ToolbarWindow* toolbar_ = nullptr;
   SettingsWindow* settings_ = nullptr;
+  PinManager* pin_manager_ = nullptr;
   std::atomic<uint64_t> next_correlation_{1};
   std::mutex subs_mu_;
   std::vector<std::function<void(const ActionEvent&)>> subscribers_;

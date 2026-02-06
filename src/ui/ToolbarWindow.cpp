@@ -9,17 +9,20 @@ namespace snappin {
 namespace {
 
 const wchar_t kToolbarClassName[] = L"SnapPinToolbar";
-const int kToolbarWidth = 210;
+const int kToolbarWidth = 366;
 const int kToolbarHeight = 34;
-const int kButtonWidth = 64;
+const int kButtonWidth = 55;
 const int kButtonHeight = 24;
 const int kPadding = 6;
-const int kGap = 6;
+const int kGap = 4;
 
 enum class ToolbarCommand {
   Copy = 2001,
   Save = 2002,
-  Close = 2003
+  Pin = 2003,
+  Annotate = 2004,
+  Ocr = 2005,
+  Close = 2006
 };
 
 RECT ClampRectToWorkArea(const RECT& desired) {
@@ -129,9 +132,15 @@ void ToolbarWindow::Hide() {
 bool ToolbarWindow::IsVisible() const { return visible_; }
 
 void ToolbarWindow::SetCallbacks(ActionCallback on_copy, ActionCallback on_save,
+                                 ActionCallback on_pin,
+                                 ActionCallback on_annotate,
+                                 ActionCallback on_ocr,
                                  ActionCallback on_close) {
   on_copy_ = std::move(on_copy);
   on_save_ = std::move(on_save);
+  on_pin_ = std::move(on_pin);
+  on_annotate_ = std::move(on_annotate);
+  on_ocr_ = std::move(on_ocr);
   on_close_ = std::move(on_close);
 }
 
@@ -169,6 +178,24 @@ LRESULT ToolbarWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         }
         return 0;
       }
+      if (cmd == static_cast<int>(ToolbarCommand::Pin)) {
+        if (on_pin_) {
+          on_pin_();
+        }
+        return 0;
+      }
+      if (cmd == static_cast<int>(ToolbarCommand::Annotate)) {
+        if (on_annotate_) {
+          on_annotate_();
+        }
+        return 0;
+      }
+      if (cmd == static_cast<int>(ToolbarCommand::Ocr)) {
+        if (on_ocr_) {
+          on_ocr_();
+        }
+        return 0;
+      }
       if (cmd == static_cast<int>(ToolbarCommand::Close)) {
         if (on_close_) {
           on_close_();
@@ -192,18 +219,29 @@ void ToolbarWindow::EnsureButtons() {
   if (btn_copy_) {
     return;
   }
-  btn_copy_ = CreateWindowW(L"BUTTON", L"Copy",
-                            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, kPadding,
-                            5, kButtonWidth, kButtonHeight, hwnd_,
-                            reinterpret_cast<HMENU>(ToolbarCommand::Copy), instance_,
-                            nullptr);
+  btn_pin_ = CreateWindowW(
+      L"BUTTON", L"Pin", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+      kPadding, 5, kButtonWidth, kButtonHeight, hwnd_,
+      reinterpret_cast<HMENU>(ToolbarCommand::Pin), instance_, nullptr);
   btn_save_ = CreateWindowW(
       L"BUTTON", L"Save", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-      kPadding + kButtonWidth + kGap, 5, kButtonWidth, kButtonHeight, hwnd_,
+      kPadding + (kButtonWidth + kGap), 5, kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(ToolbarCommand::Save), instance_, nullptr);
+  btn_copy_ = CreateWindowW(
+      L"BUTTON", L"Copy", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+      kPadding + (kButtonWidth + kGap) * 2, 5, kButtonWidth, kButtonHeight, hwnd_,
+      reinterpret_cast<HMENU>(ToolbarCommand::Copy), instance_, nullptr);
+  btn_annotate_ = CreateWindowW(
+      L"BUTTON", L"Mark", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+      kPadding + (kButtonWidth + kGap) * 3, 5, kButtonWidth, kButtonHeight, hwnd_,
+      reinterpret_cast<HMENU>(ToolbarCommand::Annotate), instance_, nullptr);
+  btn_ocr_ = CreateWindowW(
+      L"BUTTON", L"OCR", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+      kPadding + (kButtonWidth + kGap) * 4, 5, kButtonWidth, kButtonHeight, hwnd_,
+      reinterpret_cast<HMENU>(ToolbarCommand::Ocr), instance_, nullptr);
   btn_close_ = CreateWindowW(
       L"BUTTON", L"Close", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-      kPadding + (kButtonWidth + kGap) * 2, 5, kButtonWidth, kButtonHeight, hwnd_,
+      kPadding + (kButtonWidth + kGap) * 5, 5, kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(ToolbarCommand::Close), instance_, nullptr);
 }
 

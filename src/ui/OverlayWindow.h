@@ -49,6 +49,7 @@ private:
   void SetClickThrough(bool enabled);
   void UpdateOverlayAlpha();
   void EnsureEscapeHotkey(bool enable);
+  void UpdateHoverRect();
 
   HWND hwnd_ = nullptr;
   HINSTANCE instance_ = nullptr;
@@ -65,6 +66,7 @@ private:
   PointPX current_client_px_{};
   RectPX selected_rect_px_{};
   RectPX selected_rect_client_px_{};
+  RectPX hover_rect_px_{};
   float dpi_scale_ = 1.0f;
 
   std::shared_ptr<std::vector<uint8_t>> frozen_pixels_;

@@ -8,6 +8,7 @@
 #include "ExportService.h"
 #include "ToolbarWindow.h"
 #include "SettingsWindow.h"
+#include "PinManager.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -147,7 +148,8 @@ std::string ExpandPattern(const std::string& pattern) {
 ActionDispatcher::ActionDispatcher(IActionRegistry& registry, RuntimeState* state, HWND hwnd,
                                    ConfigService* config_service, OverlayWindow* overlay,
                                    IArtifactStore* artifacts, IExportService* exporter,
-                                   ToolbarWindow* toolbar, SettingsWindow* settings)
+                                   ToolbarWindow* toolbar, SettingsWindow* settings,
+                                   PinManager* pin_manager)
     : registry_(registry),
       state_(state),
       hwnd_(hwnd),
@@ -156,7 +158,8 @@ ActionDispatcher::ActionDispatcher(IActionRegistry& registry, RuntimeState* stat
       artifacts_(artifacts),
       exporter_(exporter),
       toolbar_(toolbar),
-      settings_(settings) {}
+      settings_(settings),
+      pin_manager_(pin_manager) {}
 
 bool ActionDispatcher::IsEnabled(const std::string& action_id, const RuntimeState& state) {
   auto desc = registry_.Find(action_id);
@@ -309,10 +312,6 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
       err.detail = "overlay_show_failed";
       return Result<void>::Fail(err);
     }
-    return Result<void>::Ok();
-  }
-  if (req.id == "pin.create_from_clipboard") {
-    // Placeholder for pin creation.
     return Result<void>::Ok();
   }
   if (req.id == "export.copy_image") {
@@ -493,6 +492,100 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     }
     return Result<void>::Ok();
   }
+  if (req.id == "pin.create_from_artifact") {
+    if (!pin_manager_ || !artifacts_ || !state_) {
+      Error err;
+      err.code = ERR_INTERNAL_ERROR;
+      err.message = "Pin unavailable";
+      err.retryable = true;
+      err.detail = "pin_service_null";
+      return Result<void>::Fail(err);
+    }
+    if (!state_->active_artifact_id.has_value()) {
+      Error err;
+      err.code = ERR_TARGET_INVALID;
+      err.message = "No active artifact";
+      err.retryable = false;
+      err.detail = "no_active_artifact";
+      return Result<void>::Fail(err);
+    }
+    std::optional<Artifact> art = artifacts_->Get(*state_->active_artifact_id);
+    if (!art.has_value()) {
+      Error err;
+      err.code = ERR_TARGET_INVALID;
+      err.message = "Artifact missing";
+      err.retryable = false;
+      err.detail = "artifact_missing";
+      return Result<void>::Fail(err);
+    }
+    Result<Id64> pin = pin_manager_->CreateFromArtifact(*art);
+    if (!pin.ok) {
+      return Result<void>::Fail(pin.error);
+    }
+    if (toolbar_) {
+      toolbar_->Hide();
+    }
+    if (state_) {
+      state_->active_artifact_id.reset();
+    }
+    if (artifacts_) {
+      artifacts_->ClearActive();
+    }
+    return Result<void>::Ok();
+  }
+  if (req.id == "pin.create_from_clipboard") {
+    if (!pin_manager_) {
+      Error err;
+      err.code = ERR_INTERNAL_ERROR;
+      err.message = "Pin unavailable";
+      err.retryable = true;
+      err.detail = "pin_service_null";
+      return Result<void>::Fail(err);
+    }
+    Result<Id64> pin = pin_manager_->CreateFromClipboard();
+    if (!pin.ok) {
+      return Result<void>::Fail(pin.error);
+    }
+    return Result<void>::Ok();
+  }
+  if (req.id == "pin.close_focused") {
+    if (!pin_manager_) {
+      Error err;
+      err.code = ERR_INTERNAL_ERROR;
+      err.message = "Pin unavailable";
+      err.retryable = true;
+      err.detail = "pin_service_null";
+      return Result<void>::Fail(err);
+    }
+    return pin_manager_->CloseFocused();
+  }
+  if (req.id == "pin.close_all") {
+    if (!pin_manager_) {
+      Error err;
+      err.code = ERR_INTERNAL_ERROR;
+      err.message = "Pin unavailable";
+      err.retryable = true;
+      err.detail = "pin_service_null";
+      return Result<void>::Fail(err);
+    }
+    return pin_manager_->CloseAll();
+  }
+  if (req.id == "annotate.open") {
+    Error err;
+    err.code = ERR_OPERATION_ABORTED;
+    err.message = "Annotate editor is not implemented yet";
+    err.retryable = true;
+    err.detail = "annotate.open";
+    return Result<void>::Fail(err);
+  }
+  if (req.id == "ocr.start") {
+    Error err;
+    err.code = ERR_OPERATION_ABORTED;
+    err.message = "OCR is not implemented yet";
+    err.retryable = true;
+    err.detail = "ocr.start";
+    return Result<void>::Fail(err);
+  }
   if (req.id == "artifact.dismiss") {
     if (artifacts_) {
       artifacts_->ClearActive();
@@ -506,10 +599,6 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     if (overlay_) {
       overlay_->Hide();
     }
-    return Result<void>::Ok();
-  }
-  if (req.id == "pin.create_from_clipboard") {
-    // Placeholder for clipboard pin.
     return Result<void>::Ok();
   }
   if (req.id == "settings.reload") {

@@ -4,6 +4,8 @@ add_library(snappin_ui STATIC
   OverlayWindow.h
   ToolbarWindow.cpp
   ToolbarWindow.h
+  PinWindow.cpp
+  PinWindow.h
   SettingsWindow.cpp
   SettingsWindow.h
 )

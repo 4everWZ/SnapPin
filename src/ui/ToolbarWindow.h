@@ -22,7 +22,9 @@ public:
   void Hide();
   bool IsVisible() const;
 
-  void SetCallbacks(ActionCallback on_copy, ActionCallback on_save, ActionCallback on_close);
+  void SetCallbacks(ActionCallback on_copy, ActionCallback on_save,
+                    ActionCallback on_pin, ActionCallback on_annotate,
+                    ActionCallback on_ocr, ActionCallback on_close);
 
 private:
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
@@ -36,10 +38,16 @@ private:
 
   HWND btn_copy_ = nullptr;
   HWND btn_save_ = nullptr;
+  HWND btn_pin_ = nullptr;
+  HWND btn_annotate_ = nullptr;
+  HWND btn_ocr_ = nullptr;
   HWND btn_close_ = nullptr;
 
   ActionCallback on_copy_;
   ActionCallback on_save_;
+  ActionCallback on_pin_;
+  ActionCallback on_annotate_;
+  ActionCallback on_ocr_;
   ActionCallback on_close_;
 };
 

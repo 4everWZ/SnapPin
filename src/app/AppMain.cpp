@@ -6,6 +6,7 @@
 #include "CaptureFreeze.h"
 #include "ExportService.h"
 #include "KeybindingsService.h"
+#include "PinManager.h"
 #include "SingleInstance.h"
 #include "TrayIcon.h"
 #include "OverlayWindow.h"
@@ -28,9 +29,12 @@ namespace {
 const wchar_t kMainWindowClass[] = L"SnapPinHiddenWindow";
 const UINT kTrayCallbackMessage = WM_USER + 1;
 const UINT kTrayIconId = 1;
+const int kSessionCopyHotkeyId = 0x51C0;
 
 UINT g_taskbar_created_msg = 0;
 snappin::TrayIcon g_tray;
+HWND g_main_hwnd = nullptr;
+bool g_session_copy_hotkey_registered = false;
 
 std::unique_ptr<snappin::ActionRegistry> g_action_registry;
 std::unique_ptr<snappin::ActionDispatcher> g_action_dispatcher;
@@ -44,6 +48,24 @@ std::unique_ptr<snappin::OverlayWindow> g_overlay;
 std::unique_ptr<snappin::ToolbarWindow> g_toolbar;
 std::unique_ptr<snappin::StatsService> g_stats;
 std::unique_ptr<snappin::SettingsWindow> g_settings;
+std::unique_ptr<snappin::PinManager> g_pin_manager;
+
+void SetSessionCopyHotkey(bool enabled) {
+  if (!g_main_hwnd) {
+    return;
+  }
+  if (enabled && !g_session_copy_hotkey_registered) {
+    if (RegisterHotKey(g_main_hwnd, kSessionCopyHotkeyId,
+                       MOD_CONTROL | MOD_NOREPEAT, 'C')) {
+      g_session_copy_hotkey_registered = true;
+    }
+    return;
+  }
+  if (!enabled && g_session_copy_hotkey_registered) {
+    UnregisterHotKey(g_main_hwnd, kSessionCopyHotkeyId);
+    g_session_copy_hotkey_registered = false;
+  }
+}
 
 std::optional<snappin::CpuBitmap> CropFrozenFrame(
     const snappin::FrozenFrame& frozen, const snappin::RectPX& selection,
@@ -155,6 +177,11 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
       }
       break;
     }
+    case snappin::PinManager::kWindowCommandMessage:
+      if (g_pin_manager) {
+        g_pin_manager->HandleWindowCommand(wparam, lparam);
+      }
+      return 0;
     case kTrayCallbackMessage: {
       const UINT tray_msg = static_cast<UINT>(LOWORD(lparam));
       if (g_config_service && g_config_service->DebugEnabled(false)) {
@@ -187,6 +214,10 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
       DestroyWindow(hwnd);
       return 0;
     case WM_DESTROY:
+      SetSessionCopyHotkey(false);
+      if (g_pin_manager) {
+        g_pin_manager->Shutdown();
+      }
       if (g_keybindings_service) {
         g_keybindings_service->Shutdown();
       }
@@ -194,6 +225,17 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
       PostQuitMessage(0);
       return 0;
     case WM_HOTKEY: {
+      if (wparam == kSessionCopyHotkeyId) {
+        if (g_action_dispatcher && g_runtime_state.active_artifact_id.has_value()) {
+          snappin::ActionInvoke copy;
+          copy.id = "export.copy_image";
+          g_action_dispatcher->Invoke(copy);
+          snappin::ActionInvoke close;
+          close.id = "artifact.dismiss";
+          g_action_dispatcher->Invoke(close);
+        }
+        return 0;
+      }
       if (g_keybindings_service && g_action_dispatcher) {
         auto action = g_keybindings_service->ActionForHotkeyId(wparam);
         if (action.has_value()) {
@@ -247,6 +289,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   if (!hwnd) {
     return 1;
   }
+  g_main_hwnd = hwnd;
 
   g_action_registry = std::make_unique<snappin::ActionRegistry>();
   g_config_service = std::make_unique<snappin::ConfigService>();
@@ -258,6 +301,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   g_capture_service = snappin::CreateCaptureService();
   g_artifact_store = std::make_unique<snappin::ArtifactStore>();
   g_export_service = std::make_unique<snappin::ExportService>();
+  g_pin_manager = std::make_unique<snappin::PinManager>();
+  if (!g_pin_manager->Initialize(instance, hwnd, &g_runtime_state)) {
+    OutputDebugStringA("Pin manager init failed\n");
+  }
 
   g_toolbar = std::make_unique<snappin::ToolbarWindow>();
   if (!g_toolbar->Create(instance)) {
@@ -301,6 +348,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
               artifact.dpi_scale = 1.0f;
               g_artifact_store->Put(artifact);
               g_runtime_state.active_artifact_id = artifact.artifact_id;
+              SetSessionCopyHotkey(true);
               if (g_config_service && g_config_service->CaptureAutoShowToolbar(true) &&
                   g_toolbar) {
                 g_toolbar->ShowAtRect(actual_rect);
@@ -341,6 +389,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
               artifact.dpi_scale = result.value.dpi_scale;
               g_artifact_store->Put(artifact);
               g_runtime_state.active_artifact_id = artifact.artifact_id;
+              SetSessionCopyHotkey(true);
               if (g_config_service && g_config_service->CaptureAutoShowToolbar(true) &&
                   g_toolbar) {
                 g_toolbar->ShowAtRect(result.value.screen_rect_px);
@@ -385,6 +434,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
             g_artifact_store->ClearActive();
           }
           g_runtime_state.active_artifact_id.reset();
+          SetSessionCopyHotkey(false);
           OutputDebugStringA("overlay cancel\n");
         });
   }
@@ -409,6 +459,27 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
             snappin::ActionInvoke close;
             close.id = "artifact.dismiss";
             g_action_dispatcher->Invoke(close);
+          }
+        },
+        []() {
+          if (g_action_dispatcher) {
+            snappin::ActionInvoke invoke;
+            invoke.id = "pin.create_from_artifact";
+            g_action_dispatcher->Invoke(invoke);
+          }
+        },
+        []() {
+          if (g_action_dispatcher) {
+            snappin::ActionInvoke invoke;
+            invoke.id = "annotate.open";
+            g_action_dispatcher->Invoke(invoke);
+          }
+        },
+        []() {
+          if (g_action_dispatcher) {
+            snappin::ActionInvoke invoke;
+            invoke.id = "ocr.start";
+            g_action_dispatcher->Invoke(invoke);
           }
         },
         []() {
@@ -454,7 +525,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   g_action_dispatcher = std::make_unique<snappin::ActionDispatcher>(
       *g_action_registry, &g_runtime_state, hwnd, g_config_service.get(),
       g_overlay.get(), g_artifact_store.get(), g_export_service.get(),
-      g_toolbar.get(), g_settings.get());
+      g_toolbar.get(), g_settings.get(), g_pin_manager.get());
   g_keybindings_service = std::make_unique<snappin::KeybindingsService>();
   snappin::Result<void> hotkeys = g_keybindings_service->Initialize(
       *g_config_service, *g_action_registry, hwnd);
@@ -462,6 +533,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     OutputDebugStringA("Hotkeys init failed\n");
   }
   g_action_dispatcher->Subscribe([](const snappin::ActionEvent& ev) {
+    if (ev.action_id == "capture.start" &&
+        ev.type == snappin::ActionEvent::Type::Started) {
+      SetSessionCopyHotkey(false);
+    }
+    if (ev.action_id == "artifact.dismiss" &&
+        ev.type == snappin::ActionEvent::Type::Succeeded) {
+      SetSessionCopyHotkey(false);
+    }
+    if (ev.action_id == "pin.create_from_artifact" &&
+        ev.type == snappin::ActionEvent::Type::Succeeded) {
+      SetSessionCopyHotkey(false);
+    }
     if (g_config_service && !g_config_service->DebugEnabled(false)) {
       return;
     }
@@ -494,5 +577,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   g_toolbar.reset();
   g_stats.reset();
   g_settings.reset();
+  g_pin_manager.reset();
   return static_cast<int>(msg.wParam);
 }
