@@ -1,6 +1,6 @@
 # SnapPin
 
-SnapPin is a lightweight Windows screenshot and pin tool, built to match PixPin-style workflows.
+SnapPin is a lightweight Windows screenshot and pin tool focused on fast daily workflows.
 
 Current focus:
 - Fast static capture with frozen-frame overlay
@@ -22,7 +22,7 @@ Implemented and actively tested:
 - Basic pin windows (multiple instances), with right-click close/destroy actions
 
 In progress:
-- Full PixPin-level pin behavior parity
+- Full pin behavior and UX polishing
 - Annotate and OCR real implementations
 - Scroll capture and recording parity
 
@@ -69,7 +69,7 @@ docs/
 
 ## Specs
 
-The old specification tree was replaced with a compact PixPin-aligned spec set:
+The old specification tree was replaced with a compact feature spec set:
 - `docs/spec/00-Scope.md`
 - `docs/spec/01-Capture.md`
 - `docs/spec/02-Pin.md`

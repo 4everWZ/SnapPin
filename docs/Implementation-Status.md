@@ -1,6 +1,6 @@
 # SnapPin Implementation Status
 
-Reference target: PixPin interaction model.
+Reference target: interaction patterns learned from mature screenshot tools and their public docs.
 
 ## Completed (user-verified)
 
@@ -17,8 +17,9 @@ Reference target: PixPin interaction model.
 
 ## Implemented, pending verification
 
-- Toolbar order aligned to PixPin flow:
-  - `Pin / Save / Copy / Mark / OCR / Close`
+- Toolbar order aligned to preferred operation flow:
+  - Right-to-left: `Copy / Save / Pin / Close` then tool buttons
+  - Left-to-right layout: `Mark / OCR / Close / Pin / Save / Copy`
 - Pin baseline:
   - Multi-pin from artifact and clipboard
   - Pin right-click: `Close / Destroy / Close All / Destroy All`
@@ -28,7 +29,7 @@ Reference target: PixPin interaction model.
 
 - Real `Mark` implementation (currently action placeholder)
 - Real `OCR` implementation (currently action placeholder)
-- PixPin-like cache/history behavior alignment
+- Cache/history behavior alignment
 
 ## Not started
 
@@ -36,4 +37,3 @@ Reference target: PixPin interaction model.
 - Recording (video/gif)
 - Full pin OCR interactions
 - Full settings parity and diagnostics panel
-

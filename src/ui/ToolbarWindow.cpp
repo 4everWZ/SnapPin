@@ -219,30 +219,30 @@ void ToolbarWindow::EnsureButtons() {
   if (btn_copy_) {
     return;
   }
-  btn_pin_ = CreateWindowW(
-      L"BUTTON", L"Pin", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-      kPadding, 5, kButtonWidth, kButtonHeight, hwnd_,
-      reinterpret_cast<HMENU>(ToolbarCommand::Pin), instance_, nullptr);
-  btn_save_ = CreateWindowW(
-      L"BUTTON", L"Save", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-      kPadding + (kButtonWidth + kGap), 5, kButtonWidth, kButtonHeight, hwnd_,
-      reinterpret_cast<HMENU>(ToolbarCommand::Save), instance_, nullptr);
-  btn_copy_ = CreateWindowW(
-      L"BUTTON", L"Copy", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-      kPadding + (kButtonWidth + kGap) * 2, 5, kButtonWidth, kButtonHeight, hwnd_,
-      reinterpret_cast<HMENU>(ToolbarCommand::Copy), instance_, nullptr);
   btn_annotate_ = CreateWindowW(
       L"BUTTON", L"Mark", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-      kPadding + (kButtonWidth + kGap) * 3, 5, kButtonWidth, kButtonHeight, hwnd_,
+      kPadding, 5, kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(ToolbarCommand::Annotate), instance_, nullptr);
   btn_ocr_ = CreateWindowW(
       L"BUTTON", L"OCR", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-      kPadding + (kButtonWidth + kGap) * 4, 5, kButtonWidth, kButtonHeight, hwnd_,
+      kPadding + (kButtonWidth + kGap), 5, kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(ToolbarCommand::Ocr), instance_, nullptr);
   btn_close_ = CreateWindowW(
       L"BUTTON", L"Close", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-      kPadding + (kButtonWidth + kGap) * 5, 5, kButtonWidth, kButtonHeight, hwnd_,
+      kPadding + (kButtonWidth + kGap) * 2, 5, kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(ToolbarCommand::Close), instance_, nullptr);
+  btn_pin_ = CreateWindowW(
+      L"BUTTON", L"Pin", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+      kPadding + (kButtonWidth + kGap) * 3, 5, kButtonWidth, kButtonHeight, hwnd_,
+      reinterpret_cast<HMENU>(ToolbarCommand::Pin), instance_, nullptr);
+  btn_save_ = CreateWindowW(
+      L"BUTTON", L"Save", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+      kPadding + (kButtonWidth + kGap) * 4, 5, kButtonWidth, kButtonHeight, hwnd_,
+      reinterpret_cast<HMENU>(ToolbarCommand::Save), instance_, nullptr);
+  btn_copy_ = CreateWindowW(
+      L"BUTTON", L"Copy", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+      kPadding + (kButtonWidth + kGap) * 5, 5, kButtonWidth, kButtonHeight, hwnd_,
+      reinterpret_cast<HMENU>(ToolbarCommand::Copy), instance_, nullptr);
 }
 
 } // namespace snappin

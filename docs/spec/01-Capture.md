@@ -12,7 +12,7 @@
 - Candidate target is highlighted.
 - `Esc` cancels and exits overlay cleanly.
 
-## Selection model (PixPin-style)
+## Selection model
 
 - Hover selects window candidate automatically.
 - Click confirms current window candidate.
@@ -28,12 +28,11 @@
 ## Toolbar behavior
 
 Toolbar order target:
-- `Pin`
-- `Save`
-- `Copy`
-- `Mark`
-- `OCR`
-- `Close`
+- Right-to-left priority actions: `Copy -> Save -> Pin -> Close`
+- Tool-side buttons continue to the left (`OCR`, `Mark`)
+
+Visual left-to-right layout:
+- `Mark | OCR | Close | Pin | Save | Copy`
 
 Semantics:
 - `Save`: save image, then close artifact toolbar.
@@ -46,4 +45,3 @@ Semantics:
 - No preview flicker while selecting.
 - Correct selection coordinates under DPI scaling.
 - Overlay and toolbar must clean up correctly after cancel or confirm.
-

@@ -43,7 +43,6 @@ Clipboard priority:
 
 ## Future parity items
 
-- Full PixPin right-click action set (copy/save/annotate/ocr on pin)
+- Full right-click action set (copy/save/annotate/ocr on pin)
 - Pin persistence policy and restore behavior
 - Fine-grained scale/opacity config parity
-
