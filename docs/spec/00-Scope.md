@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build a practical Windows screenshot utility with behavior aligned to reference app:
+Build a practical Windows screenshot utility using patterns learned from mature screenshot tools and public documentation (including reference app docs):
 - Fast capture flow
 - Fast post-capture actions
 - Persistent pin windows for reference work
@@ -28,12 +28,12 @@ Build a practical Windows screenshot utility with behavior aligned to reference 
 
 ## Release baseline (parity target)
 
-- Static capture: region/window/fullscreen semantics compatible with reference app
-- Toolbar flow and behavior aligned to reference app usage rhythm
+- Static capture: region/window/fullscreen semantics compatible with mainstream screenshot tools
+- Toolbar flow and behavior aligned to common post-capture usage rhythm
 - Multi-pin workflow with quick close/destroy operations
-- Hotkey defaults compatible with reference app expectations where feasible
+- Hotkey defaults compatible with common screenshot-tool expectations where feasible
 
-## External references
+## External references (feature study)
 
 - reference app home: `reference app reference
 - reference app docs home: `reference app reference
