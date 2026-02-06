@@ -3,6 +3,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <windowsx.h>
+#include <dwmapi.h>
 
 #include <algorithm>
 #include <cmath>
@@ -17,6 +18,8 @@ const BYTE kOverlayAlpha = 170;
 const float kOverlayDimFactor = 0.55f;
 const int kBorderPx = 2;
 const int kEscapeHotkeyId = 42;
+const UINT_PTR kOverlayRefreshTimerId = 7;
+const UINT kOverlayRefreshIntervalMs = 33;
 
 void DrawFrozenFrame(HDC hdc, const RECT& rc, const uint8_t* pixels, int32_t width,
                      int32_t height) {
@@ -52,6 +55,78 @@ RectPX RectFromScreenPoints(const PointPX& a, const POINT& b) {
   return rect;
 }
 
+RectPX IntersectRectPx(const RectPX& a, const RectPX& b) {
+  RectPX out;
+  const int32_t left = std::max(a.x, b.x);
+  const int32_t top = std::max(a.y, b.y);
+  const int32_t right = std::min(a.x + a.w, b.x + b.w);
+  const int32_t bottom = std::min(a.y + a.h, b.y + b.h);
+  if (right <= left || bottom <= top) {
+    return out;
+  }
+  out.x = left;
+  out.y = top;
+  out.w = right - left;
+  out.h = bottom - top;
+  return out;
+}
+
+bool GetWindowFrameRect(HWND hwnd, RECT* out) {
+  if (!out || !hwnd) {
+    return false;
+  }
+  RECT frame = {};
+  const HRESULT hr = DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS,
+                                           &frame, sizeof(frame));
+  if (SUCCEEDED(hr) && frame.right > frame.left && frame.bottom > frame.top) {
+    *out = frame;
+    return true;
+  }
+  RECT wr = {};
+  if (!GetWindowRect(hwnd, &wr)) {
+    return false;
+  }
+  if (wr.right <= wr.left || wr.bottom <= wr.top) {
+    return false;
+  }
+  *out = wr;
+  return true;
+}
+
+bool IsWindowCloaked(HWND hwnd) {
+  DWORD cloaked = 0;
+  const HRESULT hr =
+      DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
+  return SUCCEEDED(hr) && cloaked != 0;
+}
+
+HWND WindowAtPointExcludingSelf(POINT pt, HWND self_hwnd) {
+  const DWORD self_pid = GetCurrentProcessId();
+  for (HWND w = GetTopWindow(nullptr); w; w = GetWindow(w, GW_HWNDNEXT)) {
+    if (w == self_hwnd) {
+      continue;
+    }
+    if (!IsWindowVisible(w) || IsIconic(w) || IsWindowCloaked(w)) {
+      continue;
+    }
+
+    DWORD pid = 0;
+    GetWindowThreadProcessId(w, &pid);
+    if (pid == self_pid) {
+      continue;
+    }
+
+    RECT wr = {};
+    if (!GetWindowFrameRect(w, &wr)) {
+      continue;
+    }
+    if (PtInRect(&wr, pt)) {
+      return w;
+    }
+  }
+  return nullptr;
+}
+
 } // namespace
 
 OverlayWindow::~OverlayWindow() { Destroy(); }
@@ -85,6 +160,7 @@ bool OverlayWindow::Create(HINSTANCE instance) {
 
 void OverlayWindow::Destroy() {
   if (hwnd_) {
+    KillTimer(hwnd_, kOverlayRefreshTimerId);
     EnsureEscapeHotkey(false);
     DestroyWindow(hwnd_);
     hwnd_ = nullptr;
@@ -135,6 +211,11 @@ void OverlayWindow::ShowForRect(const RectPX& rect) {
   visible_ = true;
   dragging_ = false;
   has_selection_ = false;
+  selected_rect_px_ = {};
+  selected_rect_client_px_ = {};
+  hover_rect_px_ = {};
+  UpdateHoverRect();
+  SetTimer(hwnd_, kOverlayRefreshTimerId, kOverlayRefreshIntervalMs, nullptr);
   UpdateMaskRegion();
   Invalidate();
 }
@@ -144,6 +225,7 @@ void OverlayWindow::Hide() {
     return;
   }
   ShowWindow(hwnd_, SW_HIDE);
+  KillTimer(hwnd_, kOverlayRefreshTimerId);
   EnsureEscapeHotkey(false);
   visible_ = false;
   dragging_ = false;
@@ -224,6 +306,17 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       }
       break;
     }
+    case WM_TIMER: {
+      if (wparam == kOverlayRefreshTimerId && !dragging_) {
+        RectPX before = hover_rect_px_;
+        UpdateHoverRect();
+        if (before.x != hover_rect_px_.x || before.y != hover_rect_px_.y ||
+            before.w != hover_rect_px_.w || before.h != hover_rect_px_.h) {
+          Invalidate();
+        }
+      }
+      return 0;
+    }
     case WM_DPICHANGED: {
       RECT* suggested = reinterpret_cast<RECT*>(lparam);
       if (suggested) {
@@ -260,6 +353,14 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         Cancel();
         return 0;
       }
+      if (wparam == VK_RETURN || wparam == VK_SPACE) {
+        if (hover_rect_px_.w > 0 && hover_rect_px_.h > 0 && on_select_) {
+          selected_rect_px_ = hover_rect_px_;
+          has_selection_ = true;
+          on_select_(hover_rect_px_);
+        }
+        return 0;
+      }
       break;
     }
     case WM_ERASEBKGND:
@@ -285,6 +386,9 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         HDC draw_dc = (mem_dc && mem_bmp) ? mem_dc : hdc;
 
         RectPX rect_screen = ActiveRectPx();
+        if (!dragging_ && !has_selection_) {
+          rect_screen = hover_rect_px_;
+        }
         if (dragging_) {
           POINT cur = {};
           if (GetCursorPos(&cur)) {
@@ -292,7 +396,7 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
           }
         }
         RECT sel = {};
-        bool show_sel = dragging_ || has_selection_;
+        bool show_sel = rect_screen.w > 0 && rect_screen.h > 0;
         if (show_sel) {
           RECT win = {};
           GetWindowRect(hwnd_, &win);
@@ -433,6 +537,29 @@ void OverlayWindow::EndDrag(POINT pt_client) {
   }
   RectPX rect = CurrentRectPx();
   RectPX rect_client = CurrentRectClient();
+  constexpr int32_t kClickSelectThresholdPx = 3;
+  const bool click_like =
+      rect.w <= kClickSelectThresholdPx && rect.h <= kClickSelectThresholdPx;
+  if (click_like) {
+    UpdateHoverRect();
+    rect = hover_rect_px_;
+    RECT win = {};
+    if (GetWindowRect(hwnd_, &win)) {
+      rect_client.x = rect.x - win.left;
+      rect_client.y = rect.y - win.top;
+      rect_client.w = rect.w;
+      rect_client.h = rect.h;
+    } else {
+      rect_client = {};
+    }
+  }
+  if (rect.w <= 0 || rect.h <= 0) {
+    dragging_ = false;
+    has_selection_ = false;
+    UpdateMaskRegion();
+    Invalidate();
+    return;
+  }
   selected_rect_px_ = rect;
   selected_rect_client_px_ = rect_client;
   has_selection_ = true;
@@ -580,6 +707,39 @@ void OverlayWindow::UpdateOverlayAlpha() {
   }
   BYTE alpha = frozen_active_ ? 255 : kOverlayAlpha;
   SetLayeredWindowAttributes(hwnd_, 0, alpha, LWA_ALPHA);
+}
+
+void OverlayWindow::UpdateHoverRect() {
+  RectPX monitor_rect;
+  monitor_rect.x = monitor_origin_.x;
+  monitor_rect.y = monitor_origin_.y;
+  monitor_rect.w = monitor_size_.cx;
+  monitor_rect.h = monitor_size_.cy;
+
+  POINT cursor = {};
+  if (!GetCursorPos(&cursor)) {
+    hover_rect_px_ = {};
+    return;
+  }
+
+  HWND target = WindowAtPointExcludingSelf(cursor, hwnd_);
+  if (!target) {
+    hover_rect_px_ = {};
+    return;
+  }
+
+  RECT wr = {};
+  if (!GetWindowFrameRect(target, &wr)) {
+    hover_rect_px_ = {};
+    return;
+  }
+
+  RectPX win_rect;
+  win_rect.x = wr.left;
+  win_rect.y = wr.top;
+  win_rect.w = wr.right - wr.left;
+  win_rect.h = wr.bottom - wr.top;
+  hover_rect_px_ = IntersectRectPx(win_rect, monitor_rect);
 }
 
 void OverlayWindow::EnsureEscapeHotkey(bool enable) {

@@ -33,6 +33,26 @@ ActionRegistry::ActionRegistry() {
                                 "Save active artifact to file",
                                 {ActionContext::ARTIFACT_ACTIVE},
                                 ThreadPolicy::BACKGROUND_OK));
+  actions_.push_back(MakeAction("pin.create_from_artifact", "Pin",
+                                "Create pin from active artifact",
+                                {ActionContext::ARTIFACT_ACTIVE},
+                                ThreadPolicy::UI_ONLY));
+  actions_.push_back(MakeAction("pin.close_focused", "Close Focused Pin",
+                                "Close currently focused pin",
+                                {ActionContext::PIN_FOCUSED},
+                                ThreadPolicy::UI_ONLY));
+  actions_.push_back(MakeAction("pin.close_all", "Close All Pins",
+                                "Close all pin windows",
+                                {ActionContext::GLOBAL},
+                                ThreadPolicy::UI_ONLY));
+  actions_.push_back(MakeAction("annotate.open", "Annotate",
+                                "Open annotation editor for active artifact",
+                                {ActionContext::ARTIFACT_ACTIVE},
+                                ThreadPolicy::UI_ONLY));
+  actions_.push_back(MakeAction("ocr.start", "OCR",
+                                "Run OCR for active artifact",
+                                {ActionContext::ARTIFACT_ACTIVE},
+                                ThreadPolicy::BACKGROUND_OK));
   actions_.push_back(MakeAction("artifact.dismiss", "Close Toolbar",
                                 "Dismiss active artifact",
                                 {ActionContext::ARTIFACT_ACTIVE},

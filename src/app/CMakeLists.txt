@@ -18,6 +18,8 @@ add_executable(snappin_app
   ArtifactStore.h
   StatsService.cpp
   StatsService.h
+  PinManager.cpp
+  PinManager.h
 )
 
 target_link_libraries(snappin_app PRIVATE
