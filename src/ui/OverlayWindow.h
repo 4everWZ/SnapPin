@@ -30,6 +30,8 @@ public:
   void SetFrozenFrame(std::shared_ptr<std::vector<uint8_t>> pixels,
                       const SizePX& size_px, int32_t stride_bytes);
   void ClearFrozenFrame();
+  void SetInteractionEnabled(bool enabled);
+  bool IsInteractionEnabled() const;
 
 private:
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
@@ -75,6 +77,7 @@ private:
   int32_t frozen_stride_ = 0;
   bool frozen_active_ = false;
   bool esc_hotkey_registered_ = false;
+  bool interaction_enabled_ = true;
 
   SelectCallback on_select_;
   CancelCallback on_cancel_;

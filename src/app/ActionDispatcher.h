@@ -12,6 +12,7 @@ namespace snappin {
 
 class ConfigService;
 class OverlayWindow;
+class AnnotateWindow;
 class IArtifactStore;
 class IExportService;
 class ToolbarWindow;
@@ -23,8 +24,8 @@ public:
   ActionDispatcher(IActionRegistry& registry, RuntimeState* state, HWND hwnd,
                    ConfigService* config_service, OverlayWindow* overlay,
                    IArtifactStore* artifacts, IExportService* exporter,
-                   ToolbarWindow* toolbar, SettingsWindow* settings,
-                   PinManager* pin_manager);
+                   ToolbarWindow* toolbar, AnnotateWindow* annotate_window,
+                   SettingsWindow* settings, PinManager* pin_manager);
 
   bool IsEnabled(const std::string& action_id, const RuntimeState& state) override;
   Result<Id64> Invoke(const ActionInvoke& req) override;
@@ -44,6 +45,7 @@ private:
   IArtifactStore* artifacts_ = nullptr;
   IExportService* exporter_ = nullptr;
   ToolbarWindow* toolbar_ = nullptr;
+  AnnotateWindow* annotate_window_ = nullptr;
   SettingsWindow* settings_ = nullptr;
   PinManager* pin_manager_ = nullptr;
   std::atomic<uint64_t> next_correlation_{1};

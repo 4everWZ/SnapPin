@@ -1,21 +1,42 @@
-﻿# SnapPin Spec - Shortcuts and Actions
+# SnapPin Spec - Shortcuts and Actions
 
-## Default shortcuts
+## Global shortcuts
 
-- `Ctrl+1`: start capture
-- `Ctrl+2`: create pin from clipboard
-- `Ctrl+C` (artifact context): copy artifact image and close toolbar
-- `Esc`: cancel current overlay/session
+- `Ctrl+1`: start static capture.
+- `Ctrl+2`: create pin from clipboard.
+- `Esc`: cancel active overlay/session when applicable.
 
-Pin context:
-- `Ctrl+C`: copy focused pin image
-- `Ctrl+S`: save focused pin image
-- `Ctrl+W`: close focused pin
-- `Ctrl+Shift+W`: close all pins
-- `Ctrl+D`: destroy focused pin
-- `L`: lock/unlock focused pin
+## Capture artifact context
 
-## Action IDs (current)
+- `Ctrl+C`: copy active artifact image (session copy flow).
+- Toolbar actions: `Copy`, `Save`, `Pin`, `Mark`, `OCR`, `Close`.
+
+## Mark session shortcuts
+
+- `Ctrl+C`: copy composed image and close mark session.
+- `Ctrl+S`: save composed image and close mark session.
+- `Ctrl+Z` / `Ctrl+Y`: undo / redo mark history.
+- `Delete`: delete selected editable annotation.
+- `Esc`: exit current mark edit/selection state; if already idle, exit capture session.
+- `R`: reselect capture range in current capture session.
+- `Shift+1`: rect tool.
+- `Shift+2`: line tool.
+- `Shift+3`: arrow tool.
+- `Shift+5`: pencil tool.
+- `Shift+8`: text tool.
+- `V`: select tool.
+- `[` / `]` or mouse wheel: decrease/increase stroke thickness.
+
+## Pin context shortcuts
+
+- `Ctrl+C`: copy focused pin image.
+- `Ctrl+S`: save focused pin image.
+- `Ctrl+W`: close focused pin.
+- `Ctrl+Shift+W`: close all pins.
+- `Ctrl+D`: destroy focused pin.
+- `L`: toggle focused pin lock.
+
+## Action IDs
 
 Global:
 - `capture.start`
@@ -23,26 +44,23 @@ Global:
 - `settings.open`
 - `app.exit`
 
-Artifact context:
+Artifact:
 - `export.copy_image`
 - `export.save_image`
 - `pin.create_from_artifact`
-- `annotate.open` (placeholder)
-- `ocr.start` (placeholder)
+- `annotate.open`
+- `ocr.start`
 - `artifact.dismiss`
 
-Pin context:
+Pin:
 - `pin.copy_focused`
 - `pin.save_focused`
 - `pin.close_focused`
 - `pin.close_all`
 
-## Behavior rules
+## Error handling rules
 
-- Actions must fail with explicit error context; no silent no-op.
-- Context guards must be enforced:
+- No silent no-op for user-triggered actions.
+- Guard context-sensitive actions with explicit failures:
   - Artifact actions require active artifact.
   - Focused-pin actions require focused pin.
-- Session-level hotkeys may be dynamically registered and removed to avoid global shortcut conflicts.
-
-

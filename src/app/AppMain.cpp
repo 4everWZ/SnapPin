@@ -11,6 +11,7 @@
 #include "TrayIcon.h"
 #include "OverlayWindow.h"
 #include "ToolbarWindow.h"
+#include "AnnotateWindow.h"
 #include "StatsService.h"
 #include "SettingsWindow.h"
 
@@ -46,6 +47,7 @@ std::unique_ptr<snappin::ExportService> g_export_service;
 snappin::RuntimeState g_runtime_state;
 std::unique_ptr<snappin::OverlayWindow> g_overlay;
 std::unique_ptr<snappin::ToolbarWindow> g_toolbar;
+std::unique_ptr<snappin::AnnotateWindow> g_annotate;
 std::unique_ptr<snappin::StatsService> g_stats;
 std::unique_ptr<snappin::SettingsWindow> g_settings;
 std::unique_ptr<snappin::PinManager> g_pin_manager;
@@ -137,6 +139,63 @@ std::optional<snappin::CpuBitmap> CropFrozenFrame(
   bmp.data.p = storage->data();
   *storage_out = std::move(storage);
   return bmp;
+}
+
+bool UpdateActiveArtifactBitmap(std::shared_ptr<std::vector<uint8_t>> pixels,
+                                const snappin::SizePX& size_px,
+                                int32_t stride_bytes) {
+  if (!pixels || !g_artifact_store || !g_runtime_state.active_artifact_id.has_value() ||
+      size_px.w <= 0 || size_px.h <= 0 || stride_bytes < size_px.w * 4) {
+    return false;
+  }
+  const size_t expected_size =
+      static_cast<size_t>(stride_bytes) * static_cast<size_t>(size_px.h);
+  if (pixels->size() < expected_size) {
+    return false;
+  }
+  std::optional<snappin::Artifact> art =
+      g_artifact_store->Get(*g_runtime_state.active_artifact_id);
+  if (!art.has_value()) {
+    return false;
+  }
+
+  art->base_cpu_storage = std::move(pixels);
+  snappin::CpuBitmap bmp;
+  bmp.format = snappin::PixelFormat::BGRA8;
+  bmp.size_px = size_px;
+  bmp.stride_bytes = stride_bytes;
+  bmp.data.p = art->base_cpu_storage->data();
+  art->base_cpu = bmp;
+  if (art->screen_rect_px.w <= 0 || art->screen_rect_px.h <= 0) {
+    art->screen_rect_px.w = size_px.w;
+    art->screen_rect_px.h = size_px.h;
+  }
+  g_artifact_store->Put(*art);
+  g_runtime_state.active_artifact_id = art->artifact_id;
+  return true;
+}
+
+void RefreshAnnotateFromActiveArtifact() {
+  if (!g_annotate || !g_artifact_store ||
+      !g_runtime_state.active_artifact_id.has_value()) {
+    return;
+  }
+  std::optional<snappin::Artifact> art =
+      g_artifact_store->Get(*g_runtime_state.active_artifact_id);
+  if (!art.has_value() || !art->base_cpu.has_value() || !art->base_cpu_storage ||
+      art->base_cpu_storage->empty()) {
+    return;
+  }
+  if (art->base_cpu->format != snappin::PixelFormat::BGRA8 ||
+      art->base_cpu->stride_bytes < art->base_cpu->size_px.w * 4) {
+    return;
+  }
+  g_annotate->BeginSession(art->screen_rect_px, art->base_cpu_storage,
+                           art->base_cpu->size_px, art->base_cpu->stride_bytes);
+  if (g_overlay) {
+    g_overlay->SetInteractionEnabled(false);
+    g_runtime_state.overlay_visible = g_overlay->IsVisible();
+  }
 }
 
 LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
@@ -310,6 +369,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   if (!g_toolbar->Create(instance)) {
     OutputDebugStringA("Toolbar create failed\n");
   }
+  g_annotate = std::make_unique<snappin::AnnotateWindow>();
+  if (!g_annotate->Create(instance)) {
+    OutputDebugStringA("Annotate window create failed\n");
+  }
   g_settings = std::make_unique<snappin::SettingsWindow>();
   if (!g_settings->Create(instance)) {
     OutputDebugStringA("Settings create failed\n");
@@ -348,10 +411,15 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
               artifact.dpi_scale = 1.0f;
               g_artifact_store->Put(artifact);
               g_runtime_state.active_artifact_id = artifact.artifact_id;
-              SetSessionCopyHotkey(true);
-              if (g_config_service && g_config_service->CaptureAutoShowToolbar(true) &&
-                  g_toolbar) {
-                g_toolbar->ShowAtRect(actual_rect);
+              if (g_runtime_state.annotate_running) {
+                SetSessionCopyHotkey(false);
+                RefreshAnnotateFromActiveArtifact();
+              } else {
+                SetSessionCopyHotkey(true);
+                if (g_config_service &&
+                    g_config_service->CaptureAutoShowToolbar(true) && g_toolbar) {
+                  g_toolbar->ShowAtRect(actual_rect);
+                }
               }
               char buffer[160];
               _snprintf_s(buffer, sizeof(buffer), _TRUNCATE,
@@ -359,7 +427,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                           bmp->size_px.h,
                           static_cast<unsigned long long>(artifact.artifact_id.value));
               OutputDebugStringA(buffer);
-              if (g_config_service && g_action_dispatcher &&
+              if (!g_runtime_state.annotate_running && g_config_service &&
+                  g_action_dispatcher &&
                   g_config_service->CaptureAutoCopyToClipboard(true)) {
                 snappin::ActionInvoke invoke;
                 invoke.id = "export.copy_image";
@@ -389,10 +458,15 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
               artifact.dpi_scale = result.value.dpi_scale;
               g_artifact_store->Put(artifact);
               g_runtime_state.active_artifact_id = artifact.artifact_id;
-              SetSessionCopyHotkey(true);
-              if (g_config_service && g_config_service->CaptureAutoShowToolbar(true) &&
-                  g_toolbar) {
-                g_toolbar->ShowAtRect(result.value.screen_rect_px);
+              if (g_runtime_state.annotate_running) {
+                SetSessionCopyHotkey(false);
+                RefreshAnnotateFromActiveArtifact();
+              } else {
+                SetSessionCopyHotkey(true);
+                if (g_config_service &&
+                    g_config_service->CaptureAutoShowToolbar(true) && g_toolbar) {
+                  g_toolbar->ShowAtRect(result.value.screen_rect_px);
+                }
               }
               char buffer[160];
               _snprintf_s(buffer, sizeof(buffer), _TRUNCATE,
@@ -400,7 +474,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                           result.value.size_px.w, result.value.size_px.h,
                           static_cast<unsigned long long>(artifact.artifact_id.value));
               OutputDebugStringA(buffer);
-              if (g_config_service && g_action_dispatcher &&
+              if (!g_runtime_state.annotate_running && g_config_service &&
+                  g_action_dispatcher &&
                   g_config_service->CaptureAutoCopyToClipboard(true)) {
                 snappin::ActionInvoke invoke;
                 invoke.id = "export.copy_image";
@@ -525,7 +600,52 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   g_action_dispatcher = std::make_unique<snappin::ActionDispatcher>(
       *g_action_registry, &g_runtime_state, hwnd, g_config_service.get(),
       g_overlay.get(), g_artifact_store.get(), g_export_service.get(),
-      g_toolbar.get(), g_settings.get(), g_pin_manager.get());
+      g_toolbar.get(), g_annotate.get(), g_settings.get(), g_pin_manager.get());
+  if (g_annotate) {
+    g_annotate->SetCommandCallback(
+        [](snappin::AnnotateWindow::Command cmd,
+           std::shared_ptr<std::vector<uint8_t>> pixels, const snappin::SizePX& size,
+           int32_t stride) {
+          UpdateActiveArtifactBitmap(std::move(pixels), size, stride);
+          if (!g_action_dispatcher) {
+            return;
+          }
+          snappin::ActionInvoke invoke;
+          switch (cmd) {
+            case snappin::AnnotateWindow::Command::Copy:
+              invoke.id = "export.copy_image";
+              g_action_dispatcher->Invoke(invoke);
+              invoke.id = "artifact.dismiss";
+              g_action_dispatcher->Invoke(invoke);
+              break;
+            case snappin::AnnotateWindow::Command::Save:
+              invoke.id = "export.save_image";
+              g_action_dispatcher->Invoke(invoke);
+              invoke.id = "artifact.dismiss";
+              g_action_dispatcher->Invoke(invoke);
+              break;
+            case snappin::AnnotateWindow::Command::Close:
+              invoke.id = "artifact.dismiss";
+              g_action_dispatcher->Invoke(invoke);
+              break;
+            case snappin::AnnotateWindow::Command::Reselect:
+              if (g_annotate) {
+                g_annotate->EndSession();
+              }
+              g_runtime_state.annotate_running = true;
+              if (g_overlay) {
+                g_overlay->SetInteractionEnabled(true);
+                g_runtime_state.overlay_visible = g_overlay->IsVisible();
+              }
+              if (g_toolbar) {
+                g_toolbar->Hide();
+              }
+              break;
+            default:
+              break;
+          }
+        });
+  }
   g_keybindings_service = std::make_unique<snappin::KeybindingsService>();
   snappin::Result<void> hotkeys = g_keybindings_service->Initialize(
       *g_config_service, *g_action_registry, hwnd);
@@ -542,6 +662,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
       SetSessionCopyHotkey(false);
     }
     if (ev.action_id == "pin.create_from_artifact" &&
+        ev.type == snappin::ActionEvent::Type::Succeeded) {
+      SetSessionCopyHotkey(false);
+    }
+    if (ev.action_id == "annotate.open" &&
         ev.type == snappin::ActionEvent::Type::Succeeded) {
       SetSessionCopyHotkey(false);
     }
@@ -575,6 +699,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   g_export_service.reset();
   g_overlay.reset();
   g_toolbar.reset();
+  g_annotate.reset();
   g_stats.reset();
   g_settings.reset();
   g_pin_manager.reset();

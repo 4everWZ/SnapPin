@@ -500,6 +500,14 @@ void OverlayWindow::BeginDrag(POINT pt_client) {
   Invalidate();
 }
 
+void OverlayWindow::SetInteractionEnabled(bool enabled) {
+  interaction_enabled_ = enabled;
+  SetClickThrough(!enabled);
+  EnsureEscapeHotkey(enabled && visible_);
+}
+
+bool OverlayWindow::IsInteractionEnabled() const { return interaction_enabled_; }
+
 void OverlayWindow::UpdateDrag(POINT pt_client) {
   POINT screen = {};
   if (GetCursorPos(&screen)) {
@@ -690,6 +698,7 @@ void OverlayWindow::SetClickThrough(bool enabled) {
   if (!hwnd_) {
     return;
   }
+  interaction_enabled_ = !enabled;
   LONG_PTR ex = GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
   if (enabled) {
     ex |= WS_EX_TRANSPARENT;

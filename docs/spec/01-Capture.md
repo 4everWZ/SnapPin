@@ -1,47 +1,51 @@
 # SnapPin Spec - Capture
 
-## Entry
+## Entry points
 
-- `Ctrl+1` starts static capture overlay.
-- Tray menu "Capture" starts the same flow.
+- Hotkey `Ctrl+1`
+- Tray menu `Capture`
 
-## Overlay behavior
+## Static capture behavior
 
-- Capture enters a frozen-frame visual pause.
-- Whole screen is dimmed.
-- Candidate target is highlighted.
-- `Esc` cancels and exits overlay cleanly.
+- Enter frozen-frame visual pause.
+- Dim full monitor frame with clear selection highlight.
+- Support both:
+  - Hover + click window selection.
+  - Drag region selection.
+- `Esc` cancels capture and exits overlay.
 
-## Selection model
+## Selection and coordinate correctness
 
-- Hover selects window candidate automatically.
-- Click confirms current window candidate.
-- Mouse drag creates a region capture.
-- Small click movement is treated as click-select, not region drag.
+- Click-like movement should be treated as window-select.
+- Drag should produce region-select.
+- Selection preview must stay stable (no flicker/no curtain shift).
+- Final captured bitmap bounds must match previewed rectangle under DPI scaling.
 
-## Output
+## Artifact lifecycle
 
-- Successful capture creates an active artifact.
-- Auto-copy behavior follows config.
-- Auto-toolbar behavior follows config.
+- On success, create active artifact with CPU bitmap payload.
+- Keep artifact available for toolbar actions.
+- Auto-copy and auto-toolbar follow config flags.
 
-## Toolbar behavior
+## Capture toolbar behavior
 
-Toolbar order target:
-- Right-to-left priority actions: `Copy -> Save -> Pin -> Close`
-- Tool-side buttons continue to the left (`OCR`, `Mark`)
+Operation priority (right-to-left):
+- `Copy`, `Save`, `Pin`, `Close`
 
-Visual left-to-right layout:
+Current visual layout (left-to-right):
 - `Mark | OCR | Close | Pin | Save | Copy`
 
-Semantics:
-- `Save`: save image, then close artifact toolbar.
-- `Copy`: copy image, then close artifact toolbar.
-- `Pin`: create pin from active artifact, then close artifact toolbar.
+Action semantics:
+- `Copy`: copy image and dismiss artifact context.
+- `Save`: save image and dismiss artifact context.
+- `Pin`: create pin from artifact.
+- `Mark`: enter annotate mode for current artifact.
 - `Close`: dismiss current artifact context.
 
-## Quality constraints
+## Long capture
 
-- No preview flicker while selecting.
-- Correct selection coordinates under DPI scaling.
-- Overlay and toolbar must clean up correctly after cancel or confirm.
+Target behavior:
+- Scroll/long capture mode based on selected area.
+
+Current status:
+- Not implemented yet.
