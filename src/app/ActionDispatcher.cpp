@@ -4,6 +4,7 @@
 #include "ConfigService.h"
 #include "ErrorCodes.h"
 #include "OverlayWindow.h"
+#include "AnnotateWindow.h"
 #include "Artifact.h"
 #include "ExportService.h"
 #include "ToolbarWindow.h"
@@ -17,6 +18,8 @@
 #include <shlobj.h>
 
 #include <cctype>
+#include <cstring>
+#include <vector>
 
 namespace snappin {
 namespace {
@@ -143,13 +146,75 @@ std::string ExpandPattern(const std::string& pattern) {
   return out;
 }
 
+std::optional<CpuBitmap> CaptureRectToCpu(const RectPX& rect,
+                                          std::shared_ptr<std::vector<uint8_t>>* storage_out) {
+  if (!storage_out || rect.w <= 0 || rect.h <= 0) {
+    return std::nullopt;
+  }
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = rect.w;
+  bmi.bmiHeader.biHeight = -rect.h;
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+
+  HDC screen = GetDC(nullptr);
+  if (!screen) {
+    return std::nullopt;
+  }
+  void* bits = nullptr;
+  HBITMAP dib = CreateDIBSection(screen, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+  if (!dib || !bits) {
+    if (dib) {
+      DeleteObject(dib);
+    }
+    ReleaseDC(nullptr, screen);
+    return std::nullopt;
+  }
+
+  HDC mem = CreateCompatibleDC(screen);
+  if (!mem) {
+    DeleteObject(dib);
+    ReleaseDC(nullptr, screen);
+    return std::nullopt;
+  }
+  HGDIOBJ old = SelectObject(mem, dib);
+  BOOL ok = BitBlt(mem, 0, 0, rect.w, rect.h, screen, rect.x, rect.y,
+                   SRCCOPY | CAPTUREBLT);
+  SelectObject(mem, old);
+  DeleteDC(mem);
+  ReleaseDC(nullptr, screen);
+  if (!ok) {
+    DeleteObject(dib);
+    return std::nullopt;
+  }
+
+  const int32_t stride = rect.w * 4;
+  const size_t total =
+      static_cast<size_t>(stride) * static_cast<size_t>(rect.h);
+  auto storage = std::make_shared<std::vector<uint8_t>>();
+  storage->resize(total);
+  std::memcpy(storage->data(), bits, total);
+  DeleteObject(dib);
+
+  CpuBitmap bmp;
+  bmp.format = PixelFormat::BGRA8;
+  bmp.size_px = SizePX{rect.w, rect.h};
+  bmp.stride_bytes = stride;
+  bmp.data.p = storage->data();
+  *storage_out = std::move(storage);
+  return bmp;
+}
+
 } // namespace
 
 ActionDispatcher::ActionDispatcher(IActionRegistry& registry, RuntimeState* state, HWND hwnd,
                                    ConfigService* config_service, OverlayWindow* overlay,
                                    IArtifactStore* artifacts, IExportService* exporter,
-                                   ToolbarWindow* toolbar, SettingsWindow* settings,
-                                   PinManager* pin_manager)
+                                   ToolbarWindow* toolbar,
+                                   AnnotateWindow* annotate_window,
+                                   SettingsWindow* settings, PinManager* pin_manager)
     : registry_(registry),
       state_(state),
       hwnd_(hwnd),
@@ -158,6 +223,7 @@ ActionDispatcher::ActionDispatcher(IActionRegistry& registry, RuntimeState* stat
       artifacts_(artifacts),
       exporter_(exporter),
       toolbar_(toolbar),
+      annotate_window_(annotate_window),
       settings_(settings),
       pin_manager_(pin_manager) {}
 
@@ -593,12 +659,73 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     return pin_manager_->CloseAll();
   }
   if (req.id == "annotate.open") {
-    Error err;
-    err.code = ERR_OPERATION_ABORTED;
-    err.message = "Annotate editor is not implemented yet";
-    err.retryable = true;
-    err.detail = "annotate.open";
-    return Result<void>::Fail(err);
+    if (!artifacts_ || !state_ || !annotate_window_) {
+      Error err;
+      err.code = ERR_INTERNAL_ERROR;
+      err.message = "Annotate unavailable";
+      err.retryable = true;
+      err.detail = "annotate_service_null";
+      return Result<void>::Fail(err);
+    }
+    if (!state_->active_artifact_id.has_value()) {
+      Error err;
+      err.code = ERR_TARGET_INVALID;
+      err.message = "No active artifact";
+      err.retryable = false;
+      err.detail = "no_active_artifact";
+      return Result<void>::Fail(err);
+    }
+    std::optional<Artifact> art = artifacts_->Get(*state_->active_artifact_id);
+    if (!art.has_value()) {
+      Error err;
+      err.code = ERR_TARGET_INVALID;
+      err.message = "Artifact missing";
+      err.retryable = false;
+      err.detail = "artifact_missing";
+      return Result<void>::Fail(err);
+    }
+    if (!art->base_cpu.has_value() || !art->base_cpu_storage ||
+        art->base_cpu_storage->empty()) {
+      std::shared_ptr<std::vector<uint8_t>> storage;
+      std::optional<CpuBitmap> recaptured =
+          CaptureRectToCpu(art->screen_rect_px, &storage);
+      if (recaptured.has_value()) {
+        art->base_cpu = *recaptured;
+        art->base_cpu_storage = std::move(storage);
+        artifacts_->Put(*art);
+      }
+    }
+    if (!art->base_cpu.has_value() || !art->base_cpu_storage ||
+        art->base_cpu_storage->empty() ||
+        art->base_cpu->format != PixelFormat::BGRA8 ||
+        art->base_cpu->stride_bytes < art->base_cpu->size_px.w * 4) {
+      Error err;
+      err.code = ERR_TARGET_INVALID;
+      err.message = "Artifact bitmap format unsupported";
+      err.retryable = false;
+      err.detail = "artifact_bitmap_unsupported";
+      return Result<void>::Fail(err);
+    }
+
+    if (!annotate_window_->BeginSession(art->screen_rect_px, art->base_cpu_storage,
+                                        art->base_cpu->size_px,
+                                        art->base_cpu->stride_bytes)) {
+      Error err;
+      err.code = ERR_INTERNAL_ERROR;
+      err.message = "Annotate window open failed";
+      err.retryable = true;
+      err.detail = "annotate_window_begin";
+      return Result<void>::Fail(err);
+    }
+    if (overlay_) {
+      overlay_->SetInteractionEnabled(false);
+    }
+    if (toolbar_) {
+      toolbar_->Hide();
+    }
+    state_->annotate_running = true;
+    state_->overlay_visible = overlay_ ? overlay_->IsVisible() : false;
+    return Result<void>::Ok();
   }
   if (req.id == "ocr.start") {
     Error err;
@@ -609,6 +736,12 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     return Result<void>::Fail(err);
   }
   if (req.id == "artifact.dismiss") {
+    if (annotate_window_ && annotate_window_->IsVisible()) {
+      annotate_window_->EndSession();
+    }
+    if (state_) {
+      state_->annotate_running = false;
+    }
     if (artifacts_) {
       artifacts_->ClearActive();
     }

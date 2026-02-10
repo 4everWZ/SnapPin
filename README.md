@@ -1,32 +1,18 @@
 # SnapPin
 
-SnapPin is a lightweight Windows screenshot and pin tool focused on fast daily workflows.
+SnapPin is a Windows screenshot, annotation, and pin utility built for fast keyboard/mouse workflows.
 
-Current focus:
-- Fast static capture with frozen-frame overlay
-- Post-capture toolbar actions
-- Multi-pin workflow (create, close, destroy)
-- Practical keyboard-first interaction
+## Features
 
-## Current status
+- Static capture with frozen-frame visual pause
+- Dimmed mask with selection highlight
+- Auto window hover selection and drag region selection
+- Post-capture toolbar actions: `Copy`, `Save`, `Pin`, `Mark`, `OCR (placeholder)`, `Close`
+- Annotation editor baseline: `Rect`, `Line`, `Arrow`, `Pencil`, `Text`, `Undo/Redo`, range reselect
+- Multi-pin image windows with close/destroy lifecycle actions
+- Tray-resident single-instance app
 
-Implemented and actively tested:
-- Tray icon with working right-click menu
-- Frozen-frame capture overlay with dim mask and highlight
-- Accurate region capture under DPI scaling
-- Auto window hover selection and drag-to-region selection
-- `Esc` to cancel capture
-- PNG save (default desktop path)
-- Auto copy and auto toolbar after capture
-- `Ctrl+C` in artifact context = Copy and close toolbar
-- Basic pin windows (multiple instances), with right-click close/destroy actions
-
-In progress:
-- Full pin behavior and UX polishing
-- Annotate and OCR real implementations
-- Scroll capture and recording parity
-
-Detailed checklist: `docs/Implementation-Status.md`
+Detailed progress and parity tracking: `docs/Implementation-Status.md`.
 
 ## Build
 
@@ -59,7 +45,7 @@ Run:
 ```text
 src/
   app/       app wiring, actions, tray, runtime services
-  ui/        overlay, toolbar, settings, pin windows
+  ui/        overlay, toolbar, settings, annotate, pin windows
   capture/   capture backends and service interface
   export/    clipboard and file export
   core/      shared types and contracts
@@ -69,10 +55,10 @@ docs/
 
 ## Specs
 
-The old specification tree was replaced with a compact feature spec set:
 - `docs/spec/00-Scope.md`
 - `docs/spec/01-Capture.md`
 - `docs/spec/02-Pin.md`
+- `docs/spec/03-Mark.md`
 - `docs/spec/03-Shortcuts-Actions.md`
 - `docs/spec/04-Roadmap.md`
 

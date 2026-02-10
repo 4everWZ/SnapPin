@@ -1,31 +1,31 @@
 # SnapPin Spec - Roadmap
 
-## Phase A (stabilize current parity)
+## Phase 1 - Mark flow stabilization
 
-- Finalize toolbar order and action semantics parity
-- Harden pin lifecycle (create/hide/destroy/focus) across edge cases
-- Stabilize save/copy speed and error feedback
+- Lock down capture->mark->reselect->capture loop.
+- Verify all mark tools with undo/redo behavior.
+- Keep first-`Esc` mark clear behavior stable.
 
-## Phase B (pin and annotate expansion)
+## Phase 2 - Mark feature parity expansion
 
-- Implement `Mark`/annotate editor real flow
-- Add richer pin menu actions (copy/save/annotate/ocr)
-- Add text-to-image clipboard pin path
+- Add mosaic and erase tools.
+- Add richer geometry style options.
+- Improve line-mode interactions toward polyline parity.
+- Improve text editing behavior and style controls.
 
-## Phase C (OCR parity)
+## Phase 3 - Pin expansion
 
-- Implement `ocr.start` for artifacts and pins
-- Add OCR result interaction on pin (selection/copy)
-- Add basic OCR status UX
+- Add text pin mode.
+- Add LaTeX pin mode.
+- Extend pin context actions (mark/ocr on pin where applicable).
 
-## Phase D (long capture and recording)
+## Phase 4 - Capture expansion
 
-- Scroll capture baseline
-- Recording baseline (MP4)
-- Integrate with artifact toolbar outputs
+- Implement long capture mode.
+- Add capture flow states and controls for long capture.
 
-## Phase E (settings and diagnostics)
+## Phase 5 - OCR and diagnostics
 
-- Expose key behavior controls in settings
-- Add diagnostics toggles and runtime debug information
-
+- Implement OCR pipeline behind `ocr.start`.
+- Add minimal OCR result UX.
+- Expand settings and diagnostics controls.

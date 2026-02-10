@@ -1,53 +1,49 @@
-﻿# SnapPin Spec - Pin
+# SnapPin Spec - Pin
 
-## Creation paths
+## Creation sources
 
-- From capture toolbar `Pin` action.
-- From clipboard using `Ctrl+2`.
+- From capture artifact toolbar (`Pin`).
+- From clipboard (`Ctrl+2`).
 
-Clipboard priority:
-- If clipboard has image data: pin image directly.
-- If no image but text exists: render text to image, then pin (planned).
+Clipboard source priority:
+- If image exists: pin image directly.
+- If text exists without image: text-to-pin path (planned).
 
-## Multi-pin behavior
+## Base pin behavior
 
-- Multiple pin windows can exist concurrently.
-- Each pin is independently movable and controllable.
+- Multiple pin windows can coexist.
+- Pin windows are independently movable.
+- Pin focus state is tracked for focused-pin actions.
 
-## Pin window interactions
+## Pin interactions
 
-- Drag with left mouse button to move.
+- Drag left mouse to move.
 - Mouse wheel to scale.
-- `Ctrl + wheel` to change opacity.
-- `L` to toggle lock state.
-- Middle click to reset scale/opacity.
+- `Ctrl + Mouse wheel` to change opacity.
+- `L` toggles lock.
+- Middle click resets scale/opacity baseline.
 
-## Context menu (must)
+## Pin context menu baseline
 
 - `Copy`
 - `Save`
-- `Close` (hide current pin)
-- `Destroy` (remove current pin permanently)
-- `Close All` (hide all pins)
-- `Destroy All` (remove all pins)
+- `Close`
+- `Destroy`
+- `Close All`
+- `Destroy All`
 - `Lock/Unlock`
 
-## Keyboard actions
+## Focused-pin shortcuts
 
-- `Ctrl+C` copies focused pin image.
-- `Ctrl+S` saves focused pin image.
-- `Ctrl+W` closes focused pin.
-- `Ctrl+Shift+W` closes all pins.
-- `Ctrl+D` destroys focused pin.
+- `Ctrl+C` copy focused pin.
+- `Ctrl+S` save focused pin.
+- `Ctrl+W` close focused pin.
+- `Ctrl+Shift+W` close all pins.
+- `Ctrl+D` destroy focused pin.
 
-## Runtime state
+## Planned parity extensions
 
-- App tracks focused pin ID for context-sensitive actions.
-- Pin operations must update focus state safely.
-
-## Future parity items
-
-- Full right-click action set with annotate/ocr on pin
-- Pin persistence policy and restore behavior
-- Fine-grained scale/opacity config parity
-
+- Pin text mode.
+- Pin LaTeX mode.
+- Pin-side annotate/OCR actions.
+- Pin restore persistence policy.
