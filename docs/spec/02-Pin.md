@@ -1,4 +1,4 @@
-# SnapPin Spec - Pin
+﻿# SnapPin Spec - Pin
 
 ## Creation paths
 
@@ -24,6 +24,8 @@ Clipboard priority:
 
 ## Context menu (must)
 
+- `Copy`
+- `Save`
 - `Close` (hide current pin)
 - `Destroy` (remove current pin permanently)
 - `Close All` (hide all pins)
@@ -32,6 +34,8 @@ Clipboard priority:
 
 ## Keyboard actions
 
+- `Ctrl+C` copies focused pin image.
+- `Ctrl+S` saves focused pin image.
 - `Ctrl+W` closes focused pin.
 - `Ctrl+Shift+W` closes all pins.
 - `Ctrl+D` destroys focused pin.
@@ -43,6 +47,7 @@ Clipboard priority:
 
 ## Future parity items
 
-- Full right-click action set (copy/save/annotate/ocr on pin)
+- Full right-click action set with annotate/ocr on pin
 - Pin persistence policy and restore behavior
 - Fine-grained scale/opacity config parity
+

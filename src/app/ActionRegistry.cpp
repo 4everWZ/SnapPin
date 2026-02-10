@@ -1,4 +1,4 @@
-#include "ActionRegistry.h"
+﻿#include "ActionRegistry.h"
 
 namespace snappin {
 namespace {
@@ -41,6 +41,14 @@ ActionRegistry::ActionRegistry() {
                                 "Close currently focused pin",
                                 {ActionContext::PIN_FOCUSED},
                                 ThreadPolicy::UI_ONLY));
+  actions_.push_back(MakeAction("pin.copy_focused", "Copy Focused Pin",
+                                "Copy focused pin image to clipboard",
+                                {ActionContext::PIN_FOCUSED},
+                                ThreadPolicy::BACKGROUND_OK));
+  actions_.push_back(MakeAction("pin.save_focused", "Save Focused Pin",
+                                "Save focused pin image to file",
+                                {ActionContext::PIN_FOCUSED},
+                                ThreadPolicy::BACKGROUND_OK));
   actions_.push_back(MakeAction("pin.close_all", "Close All Pins",
                                 "Close all pin windows",
                                 {ActionContext::GLOBAL},
@@ -75,3 +83,4 @@ std::optional<ActionDescriptor> ActionRegistry::Find(const std::string& id) {
 }
 
 } // namespace snappin
+

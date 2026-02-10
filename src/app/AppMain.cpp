@@ -1,4 +1,4 @@
-#include "ActionDispatcher.h"
+﻿#include "ActionDispatcher.h"
 #include "ActionRegistry.h"
 #include "ArtifactStore.h"
 #include "ConfigService.h"
@@ -302,7 +302,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   g_artifact_store = std::make_unique<snappin::ArtifactStore>();
   g_export_service = std::make_unique<snappin::ExportService>();
   g_pin_manager = std::make_unique<snappin::PinManager>();
-  if (!g_pin_manager->Initialize(instance, hwnd, &g_runtime_state)) {
+  if (!g_pin_manager->Initialize(instance, hwnd, &g_runtime_state, g_config_service.get(), g_export_service.get())) {
     OutputDebugStringA("Pin manager init failed\n");
   }
 
@@ -580,3 +580,5 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   g_pin_manager.reset();
   return static_cast<int>(msg.wParam);
 }
+
+

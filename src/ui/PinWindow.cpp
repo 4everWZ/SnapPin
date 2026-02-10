@@ -1,4 +1,4 @@
-#include "PinWindow.h"
+﻿#include "PinWindow.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -12,11 +12,13 @@ namespace {
 
 const wchar_t kPinWindowClassName[] = L"SnapPinPinWindow";
 
-const int kMenuClose = 4101;
-const int kMenuDestroy = 4102;
-const int kMenuCloseAll = 4103;
-const int kMenuDestroyAll = 4104;
-const int kMenuToggleLock = 4105;
+const int kMenuCopy = 4101;
+const int kMenuSave = 4102;
+const int kMenuClose = 4103;
+const int kMenuDestroy = 4104;
+const int kMenuCloseAll = 4105;
+const int kMenuDestroyAll = 4106;
+const int kMenuToggleLock = 4107;
 
 constexpr float kScaleMin = 0.10f;
 constexpr float kScaleMax = 5.0f;
@@ -214,6 +216,18 @@ LRESULT PinWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         locked_ = !locked_;
         return 0;
       }
+      if (ctrl && wparam == 'C') {
+        if (on_command_) {
+          on_command_(pin_id_, Command::CopySelf);
+        }
+        return 0;
+      }
+      if (ctrl && wparam == 'S') {
+        if (on_command_) {
+          on_command_(pin_id_, Command::SaveSelf);
+        }
+        return 0;
+      }
       if (ctrl && wparam == 'D') {
         if (on_command_) {
           on_command_(pin_id_, Command::DestroySelf);
@@ -338,6 +352,9 @@ void PinWindow::ShowContextMenu(POINT screen_pt) {
   if (!menu) {
     return;
   }
+  AppendMenuW(menu, MF_STRING, kMenuCopy, L"Copy");
+  AppendMenuW(menu, MF_STRING, kMenuSave, L"Save");
+  AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kMenuClose, L"Close");
   AppendMenuW(menu, MF_STRING, kMenuDestroy, L"Destroy");
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
@@ -359,6 +376,14 @@ void PinWindow::ShowContextMenu(POINT screen_pt) {
     return;
   }
   if (!on_command_) {
+    return;
+  }
+  if (cmd == kMenuCopy) {
+    on_command_(pin_id_, Command::CopySelf);
+    return;
+  }
+  if (cmd == kMenuSave) {
+    on_command_(pin_id_, Command::SaveSelf);
     return;
   }
   if (cmd == kMenuClose) {
@@ -386,3 +411,6 @@ void PinWindow::NotifyFocus() {
 }
 
 } // namespace snappin
+
+
+

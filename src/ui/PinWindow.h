@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Types.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -13,10 +13,12 @@ namespace snappin {
 class PinWindow {
 public:
   enum class Command {
-    CloseSelf = 1,
-    DestroySelf = 2,
-    CloseAll = 3,
-    DestroyAll = 4,
+    CopySelf = 1,
+    SaveSelf = 2,
+    CloseSelf = 3,
+    DestroySelf = 4,
+    CloseAll = 5,
+    DestroyAll = 6,
   };
 
   using FocusCallback = std::function<void(Id64)>;
@@ -73,4 +75,5 @@ private:
 };
 
 } // namespace snappin
+
 

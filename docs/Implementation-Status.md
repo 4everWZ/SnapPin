@@ -1,4 +1,4 @@
-# SnapPin Implementation Status
+﻿# SnapPin Implementation Status
 
 Reference target: interaction patterns learned from mature screenshot tools and their public docs.
 
@@ -22,8 +22,8 @@ Reference target: interaction patterns learned from mature screenshot tools and 
   - Left-to-right layout: `Mark / OCR / Close / Pin / Save / Copy`
 - Pin baseline:
   - Multi-pin from artifact and clipboard
-  - Pin right-click: `Close / Destroy / Close All / Destroy All`
-  - Pin focus shortcuts: `Ctrl+W / Ctrl+Shift+W / Ctrl+D`
+  - Pin right-click: `Copy / Save / Close / Destroy / Close All / Destroy All`
+  - Pin focus shortcuts: `Ctrl+C / Ctrl+S / Ctrl+W / Ctrl+Shift+W / Ctrl+D`
 
 ## In progress
 
@@ -37,3 +37,4 @@ Reference target: interaction patterns learned from mature screenshot tools and 
 - Recording (video/gif)
 - Full pin OCR interactions
 - Full settings parity and diagnostics panel
+

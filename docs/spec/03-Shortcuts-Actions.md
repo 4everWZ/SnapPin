@@ -1,4 +1,4 @@
-# SnapPin Spec - Shortcuts and Actions
+﻿# SnapPin Spec - Shortcuts and Actions
 
 ## Default shortcuts
 
@@ -8,6 +8,8 @@
 - `Esc`: cancel current overlay/session
 
 Pin context:
+- `Ctrl+C`: copy focused pin image
+- `Ctrl+S`: save focused pin image
 - `Ctrl+W`: close focused pin
 - `Ctrl+Shift+W`: close all pins
 - `Ctrl+D`: destroy focused pin
@@ -30,6 +32,8 @@ Artifact context:
 - `artifact.dismiss`
 
 Pin context:
+- `pin.copy_focused`
+- `pin.save_focused`
 - `pin.close_focused`
 - `pin.close_all`
 
@@ -40,4 +44,5 @@ Pin context:
   - Artifact actions require active artifact.
   - Focused-pin actions require focused pin.
 - Session-level hotkeys may be dynamically registered and removed to avoid global shortcut conflicts.
+
 
