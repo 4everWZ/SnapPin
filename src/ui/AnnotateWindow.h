@@ -27,7 +27,7 @@ public:
   AnnotateWindow() = default;
   ~AnnotateWindow();
 
-  bool Create(HINSTANCE instance);
+  bool Create(HINSTANCE instance, HWND parent = nullptr);
   void Destroy();
 
   bool BeginSession(const RectPX& screen_rect,
@@ -125,6 +125,7 @@ private:
 
   HWND hwnd_ = nullptr;
   HINSTANCE instance_ = nullptr;
+  HWND parent_hwnd_ = nullptr;
   bool visible_ = false;
 
   RectPX screen_rect_px_{};

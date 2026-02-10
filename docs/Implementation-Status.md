@@ -42,7 +42,7 @@ This file tracks parity against the current feature reference set and user valid
 ## Implemented (pending user verification)
 
 - Mark session interaction:
-  - `Mark` opens annotate without dismissing the active capture context.
+  - `Mark` opens annotate inside active capture context without dismissing capture.
   - `Range` button and `R` shortcut re-enter selection in the same capture session.
   - First `Esc` exits current mark selection/edit state; next `Esc` exits capture session.
 - Mark tools baseline:
