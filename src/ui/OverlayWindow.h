@@ -32,6 +32,7 @@ public:
   void ClearFrozenFrame();
   void SetInteractionEnabled(bool enabled);
   bool IsInteractionEnabled() const;
+  HWND Handle() const;
 
 private:
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);

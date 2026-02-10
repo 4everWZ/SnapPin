@@ -3,7 +3,7 @@
 ## Entry and session model
 
 - `Mark` opens from current capture artifact.
-- Mark session must stay in capture workflow, not switch to a separate pin workflow.
+- Mark session runs inside capture overlay context (not a separate top-level editor window).
 - Mark supports reselecting the capture range without leaving current capture session.
 
 ## Session control rules

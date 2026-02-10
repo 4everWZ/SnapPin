@@ -196,6 +196,7 @@ void OverlayWindow::ShowForRect(const RectPX& rect) {
     return;
   }
   SetClickThrough(false);
+  interaction_enabled_ = true;
   EnsureEscapeHotkey(true);
   monitor_origin_.x = rect.x;
   monitor_origin_.y = rect.y;
@@ -230,6 +231,7 @@ void OverlayWindow::Hide() {
   visible_ = false;
   dragging_ = false;
   has_selection_ = false;
+  interaction_enabled_ = true;
   ClearFrozenFrame();
 }
 
@@ -307,6 +309,9 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       break;
     }
     case WM_TIMER: {
+      if (!interaction_enabled_) {
+        return 0;
+      }
       if (wparam == kOverlayRefreshTimerId && !dragging_) {
         RectPX before = hover_rect_px_;
         UpdateHoverRect();
@@ -328,11 +333,17 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       return 0;
     }
     case WM_LBUTTONDOWN: {
+      if (!interaction_enabled_) {
+        return 0;
+      }
       POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
       BeginDrag(pt);
       return 0;
     }
     case WM_MOUSEMOVE: {
+      if (!interaction_enabled_) {
+        return 0;
+      }
       if (!dragging_) {
         break;
       }
@@ -341,6 +352,9 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       return 0;
     }
     case WM_LBUTTONUP: {
+      if (!interaction_enabled_) {
+        return 0;
+      }
       if (!dragging_) {
         break;
       }
@@ -349,6 +363,9 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       return 0;
     }
     case WM_KEYDOWN: {
+      if (!interaction_enabled_) {
+        return 0;
+      }
       if (wparam == VK_ESCAPE) {
         Cancel();
         return 0;
@@ -502,11 +519,17 @@ void OverlayWindow::BeginDrag(POINT pt_client) {
 
 void OverlayWindow::SetInteractionEnabled(bool enabled) {
   interaction_enabled_ = enabled;
-  SetClickThrough(!enabled);
+  SetClickThrough(false);
+  if (!enabled && dragging_) {
+    ReleaseCapture();
+    dragging_ = false;
+  }
   EnsureEscapeHotkey(enabled && visible_);
 }
 
 bool OverlayWindow::IsInteractionEnabled() const { return interaction_enabled_; }
+
+HWND OverlayWindow::Handle() const { return hwnd_; }
 
 void OverlayWindow::UpdateDrag(POINT pt_client) {
   POINT screen = {};
@@ -698,7 +721,6 @@ void OverlayWindow::SetClickThrough(bool enabled) {
   if (!hwnd_) {
     return;
   }
-  interaction_enabled_ = !enabled;
   LONG_PTR ex = GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
   if (enabled) {
     ex |= WS_EX_TRANSPARENT;

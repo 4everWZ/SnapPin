@@ -102,6 +102,29 @@ RECT ClampRectToWorkArea(const RECT& desired) {
   return out;
 }
 
+RECT ClampRectToBounds(const RECT& desired, const RECT& bounds) {
+  RECT out = desired;
+  const int width = desired.right - desired.left;
+  const int height = desired.bottom - desired.top;
+  if (out.left < bounds.left) {
+    out.left = bounds.left;
+    out.right = out.left + width;
+  }
+  if (out.right > bounds.right) {
+    out.right = bounds.right;
+    out.left = out.right - width;
+  }
+  if (out.top < bounds.top) {
+    out.top = bounds.top;
+    out.bottom = out.top + height;
+  }
+  if (out.bottom > bounds.bottom) {
+    out.bottom = bounds.bottom;
+    out.top = out.bottom - height;
+  }
+  return out;
+}
+
 bool PointsEqual(const POINT& a, const POINT& b) {
   return a.x == b.x && a.y == b.y;
 }
@@ -130,11 +153,12 @@ POINT SnapPoint45(const POINT& anchor, const POINT& pt) {
 
 AnnotateWindow::~AnnotateWindow() { Destroy(); }
 
-bool AnnotateWindow::Create(HINSTANCE instance) {
+bool AnnotateWindow::Create(HINSTANCE instance, HWND parent) {
   if (hwnd_) {
     return true;
   }
   instance_ = instance;
+  parent_hwnd_ = parent;
 
   WNDCLASSEXW wc = {};
   wc.cbSize = sizeof(wc);
@@ -145,9 +169,20 @@ bool AnnotateWindow::Create(HINSTANCE instance) {
   wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
   RegisterClassExW(&wc);
 
-  hwnd_ = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, kAnnotateClassName,
-                          L"SnapPin Mark", WS_POPUP | WS_BORDER, 0, 0, 0, 0,
-                          nullptr, nullptr, instance_, this);
+  DWORD ex_style = WS_EX_TOOLWINDOW;
+  DWORD style = WS_POPUP | WS_BORDER;
+  HWND parent_handle = nullptr;
+  if (parent_hwnd_) {
+    ex_style = 0;
+    style = WS_CHILD | WS_VISIBLE | WS_BORDER | WS_CLIPSIBLINGS;
+    parent_handle = parent_hwnd_;
+  } else {
+    ex_style = WS_EX_TOPMOST | WS_EX_TOOLWINDOW;
+    style = WS_POPUP | WS_BORDER;
+  }
+
+  hwnd_ = CreateWindowExW(ex_style, kAnnotateClassName, L"SnapPin Mark", style, 0, 0,
+                          0, 0, parent_handle, nullptr, instance_, this);
   if (!hwnd_) {
     return false;
   }
@@ -206,12 +241,34 @@ bool AnnotateWindow::BeginSession(const RectPX& screen_rect,
   desired.top = screen_rect.y - kToolbarHeight;
   desired.right = desired.left + window_w;
   desired.bottom = desired.top + window_h;
-  RECT clamped = ClampRectToWorkArea(desired);
+  RECT clamped = desired;
+  if (parent_hwnd_) {
+    RECT parent_rect = {};
+    RECT parent_client = {};
+    if (GetWindowRect(parent_hwnd_, &parent_rect) &&
+        GetClientRect(parent_hwnd_, &parent_client)) {
+      desired.left -= parent_rect.left;
+      desired.right -= parent_rect.left;
+      desired.top -= parent_rect.top;
+      desired.bottom -= parent_rect.top;
+      clamped = ClampRectToBounds(desired, parent_client);
+    }
+  } else {
+    clamped = ClampRectToWorkArea(desired);
+  }
 
-  SetWindowPos(hwnd_, HWND_TOPMOST, clamped.left, clamped.top, window_w, window_h,
-               SWP_SHOWWINDOW);
+  UINT flags = SWP_SHOWWINDOW;
+  HWND insert_after = HWND_TOPMOST;
+  if (parent_hwnd_) {
+    insert_after = nullptr;
+    flags |= SWP_NOZORDER;
+  }
+  SetWindowPos(hwnd_, insert_after, clamped.left, clamped.top, window_w, window_h,
+               flags);
   ShowWindow(hwnd_, SW_SHOWNORMAL);
-  SetForegroundWindow(hwnd_);
+  if (!parent_hwnd_) {
+    SetForegroundWindow(hwnd_);
+  }
   SetFocus(hwnd_);
   visible_ = true;
   LayoutControls();

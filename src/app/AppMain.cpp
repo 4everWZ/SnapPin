@@ -369,10 +369,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   if (!g_toolbar->Create(instance)) {
     OutputDebugStringA("Toolbar create failed\n");
   }
-  g_annotate = std::make_unique<snappin::AnnotateWindow>();
-  if (!g_annotate->Create(instance)) {
-    OutputDebugStringA("Annotate window create failed\n");
-  }
   g_settings = std::make_unique<snappin::SettingsWindow>();
   if (!g_settings->Create(instance)) {
     OutputDebugStringA("Settings create failed\n");
@@ -512,6 +508,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
           SetSessionCopyHotkey(false);
           OutputDebugStringA("overlay cancel\n");
         });
+  }
+  g_annotate = std::make_unique<snappin::AnnotateWindow>();
+  HWND annotate_parent = g_overlay ? g_overlay->Handle() : nullptr;
+  if (!g_annotate->Create(instance, annotate_parent)) {
+    OutputDebugStringA("Annotate window create failed\n");
   }
 
   if (g_toolbar) {
