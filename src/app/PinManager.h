@@ -1,6 +1,7 @@
-#pragma once
+﻿#pragma once
 #include "Artifact.h"
 #include "ErrorCodes.h"
+#include "ExportService.h"
 #include "PinWindow.h"
 #include "Types.h"
 
@@ -14,6 +15,7 @@
 
 namespace snappin {
 
+class ConfigService;
 struct RuntimeState;
 
 class PinManager {
@@ -23,7 +25,8 @@ public:
   PinManager() = default;
   ~PinManager();
 
-  bool Initialize(HINSTANCE instance, HWND main_hwnd, RuntimeState* runtime_state);
+  bool Initialize(HINSTANCE instance, HWND main_hwnd, RuntimeState* runtime_state,
+                  ConfigService* config_service, IExportService* exporter);
   void Shutdown();
 
   Result<Id64> CreateFromArtifact(const Artifact& art);
@@ -31,6 +34,8 @@ public:
 
   Result<void> CloseFocused();
   Result<void> CloseAll();
+  Result<void> CopyFocused();
+  Result<void> SaveFocused();
 
   bool HandleWindowCommand(WPARAM wparam, LPARAM lparam);
 
@@ -53,6 +58,9 @@ private:
   PointPX DefaultCenteredPos(const SizePX& size_px) const;
 
   void SetFocusedPin(const std::optional<Id64>& pin_id);
+  Result<void> BuildArtifactFromPin(Id64 pin_id, Artifact* out_artifact);
+  Result<void> CopyPin(Id64 pin_id);
+  Result<void> SavePin(Id64 pin_id);
   Result<void> ClosePin(Id64 pin_id);
   Result<void> DestroyPin(Id64 pin_id);
   Result<void> DestroyAll();
@@ -60,6 +68,8 @@ private:
   HINSTANCE instance_ = nullptr;
   HWND main_hwnd_ = nullptr;
   RuntimeState* runtime_state_ = nullptr;
+  ConfigService* config_service_ = nullptr;
+  IExportService* exporter_ = nullptr;
 
   uint64_t next_pin_id_ = 1;
   std::unordered_map<uint64_t, PinEntry> pins_;
@@ -67,4 +77,3 @@ private:
 };
 
 } // namespace snappin
-

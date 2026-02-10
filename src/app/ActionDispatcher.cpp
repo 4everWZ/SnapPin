@@ -1,4 +1,4 @@
-#include "ActionDispatcher.h"
+﻿#include "ActionDispatcher.h"
 
 #include "CaptureFreeze.h"
 #include "ConfigService.h"
@@ -548,6 +548,28 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     }
     return Result<void>::Ok();
   }
+  if (req.id == "pin.copy_focused") {
+    if (!pin_manager_) {
+      Error err;
+      err.code = ERR_INTERNAL_ERROR;
+      err.message = "Pin unavailable";
+      err.retryable = true;
+      err.detail = "pin_service_null";
+      return Result<void>::Fail(err);
+    }
+    return pin_manager_->CopyFocused();
+  }
+  if (req.id == "pin.save_focused") {
+    if (!pin_manager_) {
+      Error err;
+      err.code = ERR_INTERNAL_ERROR;
+      err.message = "Pin unavailable";
+      err.retryable = true;
+      err.detail = "pin_service_null";
+      return Result<void>::Fail(err);
+    }
+    return pin_manager_->SaveFocused();
+  }
   if (req.id == "pin.close_focused") {
     if (!pin_manager_) {
       Error err;
@@ -628,3 +650,4 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
 }
 
 } // namespace snappin
+
