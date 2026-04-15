@@ -2,6 +2,12 @@
 
 This file tracks parity against the current feature reference set and user validation.
 
+Normalized docs entry points:
+
+- Active spec index: `docs/specs/00_overview.md`
+- PixPin parity matrix: `docs/specs/matrix_pixpin_parity.md`
+- Integration validation checklist: `docs/specs/integration_validation.md`
+
 ## Validation rule
 
 - `Completed (user-verified)` means explicitly confirmed in manual testing by user feedback.

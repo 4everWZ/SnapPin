@@ -1,6 +1,6 @@
 # SnapPin
 
-SnapPin is a Windows screenshot, annotation, and pin utility built for fast keyboard/mouse workflows.
+SnapPin is a free and open-source Windows screenshot, annotation, and pin utility built for fast keyboard/mouse workflows.
 
 ## Features
 
@@ -53,15 +53,15 @@ tests/
 docs/
 ```
 
-## Specs
+## Specs and Design
 
-- `docs/spec/00-Scope.md`
-- `docs/spec/01-Capture.md`
-- `docs/spec/02-Pin.md`
-- `docs/spec/03-Mark.md`
-- `docs/spec/03-Shortcuts-Actions.md`
-- `docs/spec/04-Roadmap.md`
+- Active spec index: `docs/specs/00_overview.md`
+- Parity and scope matrix: `docs/specs/matrix_pixpin_parity.md`
+- Integration checklist: `docs/specs/integration_validation.md`
+- Architecture: `docs/design/system_architecture.md`
+- Tradeoffs: `docs/tradeoffs.md`
+- Legacy spec snapshot: `docs/specs/legacy/`
 
 ## License
 
-TBD
+MIT
