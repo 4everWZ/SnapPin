@@ -22,18 +22,18 @@ const int kHandleSize = 8;
 const int kHitTolerance = 8;
 const int kMinShapeSize = 1;
 
-const int kCmdSelect = 5201;
-const int kCmdRect = 5202;
-const int kCmdLine = 5203;
-const int kCmdArrow = 5204;
-const int kCmdPencil = 5205;
-const int kCmdText = 5206;
-const int kCmdReselect = 5207;
-const int kCmdUndo = 5208;
-const int kCmdRedo = 5209;
-const int kCmdCopy = 5210;
-const int kCmdSave = 5211;
-const int kCmdClose = 5212;
+const INT_PTR kCmdSelect = 5201;
+const INT_PTR kCmdRect = 5202;
+const INT_PTR kCmdLine = 5203;
+const INT_PTR kCmdArrow = 5204;
+const INT_PTR kCmdPencil = 5205;
+const INT_PTR kCmdText = 5206;
+const INT_PTR kCmdReselect = 5207;
+const INT_PTR kCmdUndo = 5208;
+const INT_PTR kCmdRedo = 5209;
+const INT_PTR kCmdCopy = 5210;
+const INT_PTR kCmdSave = 5211;
+const INT_PTR kCmdClose = 5212;
 
 int ClampInt(int value, int lo, int hi) {
   if (value < lo) {
