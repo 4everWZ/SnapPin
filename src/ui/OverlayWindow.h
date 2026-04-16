@@ -34,6 +34,10 @@ public:
   bool IsInteractionEnabled() const;
   HWND Handle() const;
 
+  // Exposed for lightweight regression testing of mask behavior.
+  static bool ShouldUseSelectionHole(bool interaction_enabled, bool dragging,
+                                     bool has_selection, bool frozen_active);
+
 private:
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
   LRESULT HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam);

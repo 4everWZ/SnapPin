@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace {
@@ -51,6 +52,7 @@ std::unique_ptr<snappin::AnnotateWindow> g_annotate;
 std::unique_ptr<snappin::StatsService> g_stats;
 std::unique_ptr<snappin::SettingsWindow> g_settings;
 std::unique_ptr<snappin::PinManager> g_pin_manager;
+bool g_ocr_region_select_mode = false;
 
 void SetSessionCopyHotkey(bool enabled) {
   if (!g_main_hwnd) {
@@ -382,7 +384,29 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
     g_overlay->SetCallbacks(
         [](const snappin::RectPX& rect) {
-          g_runtime_state.overlay_visible = false;
+          if (g_ocr_region_select_mode) {
+            g_ocr_region_select_mode = false;
+            if (g_action_dispatcher &&
+                g_runtime_state.active_artifact_id.has_value()) {
+              snappin::ActionInvoke invoke;
+              invoke.id = "ocr.start";
+              invoke.kv.push_back({"x", std::to_string(rect.x)});
+              invoke.kv.push_back({"y", std::to_string(rect.y)});
+              invoke.kv.push_back({"w", std::to_string(rect.w)});
+              invoke.kv.push_back({"h", std::to_string(rect.h)});
+              g_action_dispatcher->Invoke(invoke);
+            }
+            if (g_overlay) {
+              g_overlay->SetInteractionEnabled(false);
+              g_runtime_state.overlay_visible = g_overlay->IsVisible();
+            }
+            if (g_toolbar) {
+              g_toolbar->ShowAtRect(rect);
+            }
+            return;
+          }
+
+          g_runtime_state.overlay_visible = g_overlay ? g_overlay->IsVisible() : false;
           ULONGLONG t0 = GetTickCount64();
           bool captured = false;
 
@@ -411,6 +435,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                 SetSessionCopyHotkey(false);
                 RefreshAnnotateFromActiveArtifact();
               } else {
+                if (g_overlay) {
+                  g_overlay->SetInteractionEnabled(false);
+                  g_runtime_state.overlay_visible = g_overlay->IsVisible();
+                }
                 SetSessionCopyHotkey(true);
                 if (g_config_service &&
                     g_config_service->CaptureAutoShowToolbar(true) && g_toolbar) {
@@ -458,6 +486,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                 SetSessionCopyHotkey(false);
                 RefreshAnnotateFromActiveArtifact();
               } else {
+                if (g_overlay) {
+                  g_overlay->SetInteractionEnabled(false);
+                  g_runtime_state.overlay_visible = g_overlay->IsVisible();
+                }
                 SetSessionCopyHotkey(true);
                 if (g_config_service &&
                     g_config_service->CaptureAutoShowToolbar(true) && g_toolbar) {
@@ -493,6 +525,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
           }
         },
         []() {
+          g_ocr_region_select_mode = false;
           g_runtime_state.overlay_visible = false;
           snappin::ClearFrozenFrame();
           if (g_overlay) {
@@ -552,6 +585,16 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
           }
         },
         []() {
+          if (g_overlay && g_overlay->IsVisible() &&
+              g_runtime_state.active_artifact_id.has_value()) {
+            g_ocr_region_select_mode = true;
+            g_overlay->SetInteractionEnabled(true);
+            g_runtime_state.overlay_visible = g_overlay->IsVisible();
+            if (g_toolbar) {
+              g_toolbar->Hide();
+            }
+            return;
+          }
           if (g_action_dispatcher) {
             snappin::ActionInvoke invoke;
             invoke.id = "ocr.start";
@@ -656,14 +699,17 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   g_action_dispatcher->Subscribe([](const snappin::ActionEvent& ev) {
     if (ev.action_id == "capture.start" &&
         ev.type == snappin::ActionEvent::Type::Started) {
+      g_ocr_region_select_mode = false;
       SetSessionCopyHotkey(false);
     }
     if (ev.action_id == "artifact.dismiss" &&
         ev.type == snappin::ActionEvent::Type::Succeeded) {
+      g_ocr_region_select_mode = false;
       SetSessionCopyHotkey(false);
     }
     if (ev.action_id == "pin.create_from_artifact" &&
         ev.type == snappin::ActionEvent::Type::Succeeded) {
+      g_ocr_region_select_mode = false;
       SetSessionCopyHotkey(false);
     }
     if (ev.action_id == "annotate.open" &&
