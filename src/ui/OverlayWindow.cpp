@@ -127,6 +127,11 @@ HWND WindowAtPointExcludingSelf(POINT pt, HWND self_hwnd) {
   return nullptr;
 }
 
+bool ShouldUseSelectionHoleImpl(bool interaction_enabled, bool dragging,
+                                bool has_selection, bool frozen_active) {
+  return !frozen_active && interaction_enabled && (dragging || has_selection);
+}
+
 } // namespace
 
 OverlayWindow::~OverlayWindow() { Destroy(); }
@@ -363,11 +368,11 @@ LRESULT OverlayWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       return 0;
     }
     case WM_KEYDOWN: {
-      if (!interaction_enabled_) {
-        return 0;
-      }
       if (wparam == VK_ESCAPE) {
         Cancel();
+        return 0;
+      }
+      if (!interaction_enabled_) {
         return 0;
       }
       if (wparam == VK_RETURN || wparam == VK_SPACE) {
@@ -524,12 +529,21 @@ void OverlayWindow::SetInteractionEnabled(bool enabled) {
     ReleaseCapture();
     dragging_ = false;
   }
-  EnsureEscapeHotkey(enabled && visible_);
+  // Esc must remain available as a safety-exit while overlay is visible.
+  EnsureEscapeHotkey(visible_);
 }
 
 bool OverlayWindow::IsInteractionEnabled() const { return interaction_enabled_; }
 
 HWND OverlayWindow::Handle() const { return hwnd_; }
+
+bool OverlayWindow::ShouldUseSelectionHole(bool interaction_enabled,
+                                           bool dragging,
+                                           bool has_selection,
+                                           bool frozen_active) {
+  return ShouldUseSelectionHoleImpl(interaction_enabled, dragging,
+                                    has_selection, frozen_active);
+}
 
 void OverlayWindow::UpdateDrag(POINT pt_client) {
   POINT screen = {};
@@ -597,7 +611,8 @@ void OverlayWindow::EndDrag(POINT pt_client) {
   dragging_ = false;
   UpdateMaskRegion();
   Invalidate();
-  SetClickThrough(true);
+  // Keep overlay non-click-through so the desktop is truly frozen during session.
+  SetClickThrough(false);
   UpdateMaskRegion();
   if (on_select_) {
     on_select_(rect);
@@ -690,7 +705,8 @@ void OverlayWindow::UpdateMaskRegion() {
     DeleteObject(base);
     return;
   }
-  if (dragging_ || has_selection_) {
+  if (ShouldUseSelectionHole(interaction_enabled_, dragging_, has_selection_,
+                             frozen_active_)) {
     RectPX rect = ActiveRectClient();
     RECT sel;
     sel.left = rect.x;

@@ -24,6 +24,8 @@
 #include <shlobj.h>
 
 #include <cctype>
+#include <climits>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -242,6 +244,22 @@ std::wstring TrimWide(const std::wstring& value) {
     --end;
   }
   return value.substr(begin, end - begin);
+}
+
+bool TryParseInt32(const std::string& text, int32_t* out) {
+  if (!out || text.empty()) {
+    return false;
+  }
+  char* end = nullptr;
+  long v = std::strtol(text.c_str(), &end, 10);
+  if (!end || *end != '\0') {
+    return false;
+  }
+  if (v < INT_MIN || v > INT_MAX) {
+    return false;
+  }
+  *out = static_cast<int32_t>(v);
+  return true;
 }
 
 Result<std::wstring> RunSystemOcr(const CpuBitmap& bmp,
@@ -472,6 +490,26 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     return Result<void>::Ok();
   }
   if (req.id == "capture.start") {
+    if (state_ && (state_->overlay_visible || state_->active_artifact_id.has_value() ||
+                   state_->annotate_running)) {
+      if (annotate_window_ && annotate_window_->IsVisible()) {
+        annotate_window_->EndSession();
+      }
+      if (toolbar_) {
+        toolbar_->Hide();
+      }
+      if (overlay_) {
+        overlay_->Hide();
+      }
+      if (artifacts_) {
+        artifacts_->ClearActive();
+      }
+      ClearFrozenFrame();
+      state_->overlay_visible = overlay_ ? overlay_->IsVisible() : false;
+      state_->active_artifact_id.reset();
+      state_->annotate_running = false;
+      return Result<void>::Ok();
+    }
     if (!overlay_) {
       Error err;
       err.code = ERR_INTERNAL_ERROR;
@@ -721,8 +759,16 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     if (toolbar_) {
       toolbar_->Hide();
     }
+    if (annotate_window_ && annotate_window_->IsVisible()) {
+      annotate_window_->EndSession();
+    }
+    if (overlay_) {
+      overlay_->Hide();
+    }
     if (state_) {
       state_->active_artifact_id.reset();
+      state_->annotate_running = false;
+      state_->overlay_visible = overlay_ ? overlay_->IsVisible() : false;
     }
     if (artifacts_) {
       artifacts_->ClearActive();
@@ -909,8 +955,87 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
       return Result<void>::Fail(err);
     }
 
-    Result<std::wstring> ocr =
-        RunSystemOcr(*art->base_cpu, *art->base_cpu_storage);
+    const CpuBitmap* ocr_bmp = &(*art->base_cpu);
+    const std::vector<uint8_t>* ocr_pixels = art->base_cpu_storage.get();
+    CpuBitmap cropped_bmp{};
+    std::vector<uint8_t> cropped_pixels;
+
+    const std::optional<std::string> x_param = FindParam(req, "x");
+    const std::optional<std::string> y_param = FindParam(req, "y");
+    const std::optional<std::string> w_param = FindParam(req, "w");
+    const std::optional<std::string> h_param = FindParam(req, "h");
+    const bool has_region_param = x_param.has_value() || y_param.has_value() ||
+                                  w_param.has_value() || h_param.has_value();
+    if (has_region_param) {
+      int32_t sx = 0;
+      int32_t sy = 0;
+      int32_t sw = 0;
+      int32_t sh = 0;
+      if (!x_param.has_value() || !y_param.has_value() || !w_param.has_value() ||
+          !h_param.has_value() || !TryParseInt32(*x_param, &sx) ||
+          !TryParseInt32(*y_param, &sy) || !TryParseInt32(*w_param, &sw) ||
+          !TryParseInt32(*h_param, &sh) || sw <= 0 || sh <= 0) {
+        Error err;
+        err.code = ERR_TARGET_INVALID;
+        err.message = "Invalid OCR region";
+        err.retryable = false;
+        err.detail = "ocr_region_param";
+        return Result<void>::Fail(err);
+      }
+
+      RectPX art_rect = art->screen_rect_px;
+      if (art_rect.w <= 0 || art_rect.h <= 0) {
+        art_rect.x = 0;
+        art_rect.y = 0;
+        art_rect.w = art->base_cpu->size_px.w;
+        art_rect.h = art->base_cpu->size_px.h;
+      }
+
+      const int32_t rel_left = sx - art_rect.x;
+      const int32_t rel_top = sy - art_rect.y;
+      const int32_t rel_right = rel_left + sw;
+      const int32_t rel_bottom = rel_top + sh;
+
+      const int32_t crop_left = std::max<int32_t>(0, rel_left);
+      const int32_t crop_top = std::max<int32_t>(0, rel_top);
+      const int32_t crop_right =
+          std::min<int32_t>(art->base_cpu->size_px.w, rel_right);
+      const int32_t crop_bottom =
+          std::min<int32_t>(art->base_cpu->size_px.h, rel_bottom);
+      const int32_t crop_w = crop_right - crop_left;
+      const int32_t crop_h = crop_bottom - crop_top;
+      if (crop_w <= 0 || crop_h <= 0) {
+        Error err;
+        err.code = ERR_TARGET_INVALID;
+        err.message = "OCR region outside artifact";
+        err.retryable = false;
+        err.detail = "ocr_region_outside";
+        return Result<void>::Fail(err);
+      }
+
+      const int32_t src_stride = art->base_cpu->stride_bytes;
+      const int32_t dst_stride = crop_w * 4;
+      cropped_pixels.resize(static_cast<size_t>(dst_stride) *
+                           static_cast<size_t>(crop_h));
+      const uint8_t* src = art->base_cpu_storage->data();
+      for (int32_t row = 0; row < crop_h; ++row) {
+        const uint8_t* src_row =
+            src + static_cast<size_t>(crop_top + row) * src_stride +
+            static_cast<size_t>(crop_left) * 4;
+        uint8_t* dst_row =
+            cropped_pixels.data() + static_cast<size_t>(row) * dst_stride;
+        std::memcpy(dst_row, src_row, static_cast<size_t>(dst_stride));
+      }
+
+      cropped_bmp = *art->base_cpu;
+      cropped_bmp.size_px = SizePX{crop_w, crop_h};
+      cropped_bmp.stride_bytes = dst_stride;
+      cropped_bmp.data.p = cropped_pixels.data();
+      ocr_bmp = &cropped_bmp;
+      ocr_pixels = &cropped_pixels;
+    }
+
+    Result<std::wstring> ocr = RunSystemOcr(*ocr_bmp, *ocr_pixels);
     if (!ocr.ok) {
       return Result<void>::Fail(ocr.error);
     }
