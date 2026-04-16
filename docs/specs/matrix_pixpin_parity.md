@@ -14,9 +14,9 @@ Status values:
 | Mark baseline tools (`Rect/Line/Arrow/Pencil/Text`) | mark/base-use + tool pages | Implemented (pending user verification) | Keep current toolset as baseline | Complete targeted manual verification loop |
 | Mark advanced tools (`Mosaic/Erase/Polyline parity`) | mark/mosaic, mark/erase, mark/line | Deferred | Deferred to avoid destabilizing baseline mark loop | Phase 2 implementation |
 | Pin image workflow and focused actions | pin/base-use, pin/image | Implemented | Baseline committed | Maintain focused action/context checks |
-| Pin text mode | pin/text | Not implemented in the current version. | Deferred by scope | Phase 3 implementation |
-| Pin LaTeX mode | pin/latex | Not implemented in the current version. | Deferred by scope | Phase 3 implementation |
-| OCR trigger and result flow | capture/static-capture, quick-start text recognition | Not implemented in the current version. | Action exists, execution intentionally blocked | Phase 5 implementation |
+| Pin text mode | pin/text | Implemented (pending user verification) | Implemented as clipboard text pin with dedicated text rendering | Validate editing/selection parity against PixPin details |
+| Pin LaTeX mode | pin/latex | Implemented (pending user verification) | Implemented as LaTeX-like text pin mode with `.tex` save path | Validate formula rendering parity depth |
+| OCR trigger and result flow | capture/static-capture, quick-start text recognition | Implemented (pending user verification) | Uses system OCR engine on active artifact bitmap and copies recognized text | Validate language/runtime coverage and failure messaging |
 | Scrolling capture | capture/long-capture | Not implemented in the current version. | Explicitly deferred | Phase 4 implementation |
 | Recording/GIF capture | quick-start GIF capture | Not implemented in the current version. | Deferred for baseline-first sequencing | Post Phase 4 |
 | Paid-only PixPin VIP features | long-capture auto-crop VIP, advanced paid modules | Not implemented in the current version. | Keep SnapPin free/open-source; no paid gating introduced | Provide open alternatives if/when implemented |

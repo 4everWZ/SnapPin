@@ -19,6 +19,7 @@ const int kMenuDestroy = 4104;
 const int kMenuCloseAll = 4105;
 const int kMenuDestroyAll = 4106;
 const int kMenuToggleLock = 4107;
+const int kMenuToggleTopMost = 4108;
 
 constexpr float kScaleMin = 0.10f;
 constexpr float kScaleMax = 5.0f;
@@ -37,6 +38,19 @@ int HeightFromScale(int height, float scale) {
   return std::max(16, v);
 }
 
+const wchar_t* DefaultTitleForContent(PinWindow::ContentKind kind) {
+  switch (kind) {
+    case PinWindow::ContentKind::Image:
+      return L"SnapPin Pin";
+    case PinWindow::ContentKind::Text:
+      return L"SnapPin Text Pin";
+    case PinWindow::ContentKind::Latex:
+      return L"SnapPin LaTeX Pin";
+    default:
+      return L"SnapPin Pin";
+  }
+}
+
 } // namespace
 
 PinWindow::~PinWindow() { Destroy(); }
@@ -44,20 +58,36 @@ PinWindow::~PinWindow() { Destroy(); }
 bool PinWindow::Create(HINSTANCE instance, Id64 pin_id,
                        std::shared_ptr<std::vector<uint8_t>> pixels,
                        const SizePX& size_px, int32_t stride_bytes,
-                       const PointPX& pos_px) {
-  if (hwnd_ || !pixels || size_px.w <= 0 || size_px.h <= 0 ||
-      stride_bytes < size_px.w * 4) {
+                       const PointPX& pos_px, ContentKind content_kind,
+                       const std::wstring& text_payload) {
+  if (hwnd_ || size_px.w <= 0 || size_px.h <= 0) {
     return false;
+  }
+
+  if (content_kind == ContentKind::Image) {
+    if (!pixels || stride_bytes < size_px.w * 4) {
+      return false;
+    }
+  } else {
+    if (text_payload.empty()) {
+      return false;
+    }
+    if (!pixels) {
+      stride_bytes = 0;
+    }
   }
 
   instance_ = instance;
   pin_id_ = pin_id;
+  content_kind_ = content_kind;
+  text_payload_ = text_payload;
   pixels_ = std::move(pixels);
   bitmap_size_px_ = size_px;
   stride_bytes_ = stride_bytes;
 
   WNDCLASSEXW wc = {};
   wc.cbSize = sizeof(wc);
+  wc.style = CS_DBLCLKS;
   wc.lpfnWndProc = &PinWindow::WndProc;
   wc.hInstance = instance_;
   wc.lpszClassName = kPinWindowClassName;
@@ -68,13 +98,14 @@ bool PinWindow::Create(HINSTANCE instance, Id64 pin_id,
   const int w = WidthFromScale(bitmap_size_px_.w, scale_);
   const int h = HeightFromScale(bitmap_size_px_.h, scale_);
   hwnd_ = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
-                          kPinWindowClassName, L"SnapPin Pin",
+                          kPinWindowClassName, DefaultTitleForContent(content_kind_),
                           WS_POPUP | WS_BORDER, pos_px.x, pos_px.y, w, h,
                           nullptr, nullptr, instance_, this);
   if (!hwnd_) {
     return false;
   }
 
+  UpdateTopMost();
   UpdateAlpha();
   Show();
   return true;
@@ -94,8 +125,7 @@ void PinWindow::Show() {
     return;
   }
   ShowWindow(hwnd_, SW_SHOWNORMAL);
-  SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0,
-               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+  UpdateTopMost();
   visible_ = true;
   NotifyFocus();
 }
@@ -114,6 +144,8 @@ bool PinWindow::IsVisible() const { return visible_; }
 Id64 PinWindow::pin_id() const { return pin_id_; }
 
 bool PinWindow::is_locked() const { return locked_; }
+
+PinWindow::ContentKind PinWindow::content_kind() const { return content_kind_; }
 
 void PinWindow::SetCallbacks(FocusCallback on_focus, CommandCallback on_command) {
   on_focus_ = std::move(on_focus);
@@ -181,6 +213,11 @@ LRESULT PinWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         ReleaseCapture();
       }
       return 0;
+    case WM_LBUTTONDBLCLK:
+      if (on_command_) {
+        on_command_(pin_id_, Command::CloseSelf);
+      }
+      return 0;
     case WM_MOUSEWHEEL:
       if (locked_) {
         return 0;
@@ -212,8 +249,19 @@ LRESULT PinWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
     case WM_KEYDOWN: {
       const bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
       const bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+      if (wparam == VK_ESCAPE) {
+        if (on_command_) {
+          on_command_(pin_id_, Command::CloseSelf);
+        }
+        return 0;
+      }
       if (wparam == 'L') {
         locked_ = !locked_;
+        return 0;
+      }
+      if (wparam == 'T') {
+        always_on_top_ = !always_on_top_;
+        UpdateTopMost();
         return 0;
       }
       if (ctrl && wparam == 'C') {
@@ -264,7 +312,7 @@ LRESULT PinWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         const int dst_w = rc.right - rc.left;
         const int dst_h = rc.bottom - rc.top;
 
-        if (pixels_ && !pixels_->empty()) {
+        if (content_kind_ == ContentKind::Image && pixels_ && !pixels_->empty()) {
           BITMAPINFO bmi = {};
           bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
           bmi.bmiHeader.biWidth = bitmap_size_px_.w;
@@ -278,9 +326,35 @@ LRESULT PinWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
                         bitmap_size_px_.h, pixels_->data(), &bmi,
                         DIB_RGB_COLORS, SRCCOPY);
         } else {
-          HBRUSH bg = CreateSolidBrush(RGB(32, 32, 32));
+          const bool latex = content_kind_ == ContentKind::Latex;
+          HBRUSH bg = CreateSolidBrush(latex ? RGB(250, 247, 238) : RGB(246, 246, 246));
           FillRect(hdc, &rc, bg);
           DeleteObject(bg);
+
+          RECT text_rect = rc;
+          InflateRect(&text_rect, -12, -10);
+
+          HFONT font = CreateFontW(
+              latex ? 24 : 20, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+              CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
+              latex ? L"Cambria Math" : L"Segoe UI");
+          HGDIOBJ old_font = SelectObject(hdc, font);
+          SetBkMode(hdc, TRANSPARENT);
+          SetTextColor(hdc, RGB(32, 32, 32));
+          DrawTextW(hdc, text_payload_.c_str(), -1, &text_rect,
+                    DT_LEFT | DT_TOP | DT_WORDBREAK | DT_EDITCONTROL |
+                        DT_NOPREFIX);
+          SelectObject(hdc, old_font);
+          DeleteObject(font);
+
+          HPEN border = CreatePen(PS_SOLID, 1, RGB(198, 198, 198));
+          HGDIOBJ old_pen = SelectObject(hdc, border);
+          HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
+          Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
+          SelectObject(hdc, old_brush);
+          SelectObject(hdc, old_pen);
+          DeleteObject(border);
         }
       }
       EndPaint(hwnd_, &ps);
@@ -308,6 +382,14 @@ void PinWindow::UpdateAlpha() {
   SetLayeredWindowAttributes(hwnd_, 0, alpha, LWA_ALPHA);
 }
 
+void PinWindow::UpdateTopMost() {
+  if (!hwnd_) {
+    return;
+  }
+  SetWindowPos(hwnd_, always_on_top_ ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0,
+               0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+}
+
 void PinWindow::ResetScaleOpacity() {
   scale_ = 1.0f;
   opacity_ = 1.0f;
@@ -316,7 +398,8 @@ void PinWindow::ResetScaleOpacity() {
     GetWindowRect(hwnd_, &wr);
     const int w = WidthFromScale(bitmap_size_px_.w, scale_);
     const int h = HeightFromScale(bitmap_size_px_.h, scale_);
-    SetWindowPos(hwnd_, HWND_TOPMOST, wr.left, wr.top, w, h,
+    SetWindowPos(hwnd_, always_on_top_ ? HWND_TOPMOST : HWND_NOTOPMOST, wr.left,
+                 wr.top, w, h,
                  SWP_NOACTIVATE);
   }
   UpdateAlpha();
@@ -334,7 +417,8 @@ void PinWindow::ApplyScale(int wheel_delta) {
   GetWindowRect(hwnd_, &wr);
   const int w = WidthFromScale(bitmap_size_px_.w, scale_);
   const int h = HeightFromScale(bitmap_size_px_.h, scale_);
-  SetWindowPos(hwnd_, HWND_TOPMOST, wr.left, wr.top, w, h, SWP_NOACTIVATE);
+  SetWindowPos(hwnd_, always_on_top_ ? HWND_TOPMOST : HWND_NOTOPMOST, wr.left,
+               wr.top, w, h, SWP_NOACTIVATE);
   Invalidate();
 }
 
@@ -352,8 +436,11 @@ void PinWindow::ShowContextMenu(POINT screen_pt) {
   if (!menu) {
     return;
   }
-  AppendMenuW(menu, MF_STRING, kMenuCopy, L"Copy");
-  AppendMenuW(menu, MF_STRING, kMenuSave, L"Save");
+  const bool image_pin = content_kind_ == ContentKind::Image;
+  const bool latex_pin = content_kind_ == ContentKind::Latex;
+  AppendMenuW(menu, MF_STRING, kMenuCopy, image_pin ? L"Copy" : L"Copy Text");
+  AppendMenuW(menu, MF_STRING, kMenuSave,
+              image_pin ? L"Save Image" : (latex_pin ? L"Save .tex" : L"Save .txt"));
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kMenuClose, L"Close");
   AppendMenuW(menu, MF_STRING, kMenuDestroy, L"Destroy");
@@ -362,6 +449,8 @@ void PinWindow::ShowContextMenu(POINT screen_pt) {
   AppendMenuW(menu, MF_STRING, kMenuDestroyAll, L"Destroy All");
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kMenuToggleLock, locked_ ? L"Unlock" : L"Lock");
+  AppendMenuW(menu, MF_STRING, kMenuToggleTopMost,
+              always_on_top_ ? L"Disable Always On Top" : L"Always On Top");
 
   SetForegroundWindow(hwnd_);
   const UINT cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
@@ -373,6 +462,11 @@ void PinWindow::ShowContextMenu(POINT screen_pt) {
   }
   if (cmd == kMenuToggleLock) {
     locked_ = !locked_;
+    return;
+  }
+  if (cmd == kMenuToggleTopMost) {
+    always_on_top_ = !always_on_top_;
+    UpdateTopMost();
     return;
   }
   if (!on_command_) {

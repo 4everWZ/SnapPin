@@ -29,6 +29,7 @@ target_link_libraries(snappin_app PRIVATE
   snappin_export
   advapi32
   shell32
+  windowsapp
   psapi
 )
 

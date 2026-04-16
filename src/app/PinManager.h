@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -42,6 +43,8 @@ public:
 private:
   struct PinEntry {
     std::unique_ptr<PinWindow> window;
+    PinWindow::ContentKind content_kind = PinWindow::ContentKind::Image;
+    std::wstring text_payload;
     std::shared_ptr<std::vector<uint8_t>> storage;
     SizePX size_px{};
     int32_t stride_bytes = 0;
@@ -52,9 +55,13 @@ private:
                            SizePX* size_out, int32_t* stride_out);
   bool ReadClipboardBitmap(std::shared_ptr<std::vector<uint8_t>>* storage_out,
                            SizePX* size_out, int32_t* stride_out, Error* err);
+  bool ReadClipboardText(std::wstring* text_out, Error* err);
   Result<Id64> CreatePinWithBitmap(std::shared_ptr<std::vector<uint8_t>> storage,
                                    const SizePX& size_px, int32_t stride_bytes,
                                    const PointPX& pos_px);
+  Result<Id64> CreatePinWithText(const std::wstring& text,
+                                 PinWindow::ContentKind content_kind,
+                                 const PointPX& pos_px);
   PointPX DefaultCenteredPos(const SizePX& size_px) const;
 
   void SetFocusedPin(const std::optional<Id64>& pin_id);
