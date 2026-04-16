@@ -60,16 +60,18 @@ Normalized docs entry points:
   - Text entry with inline typing and commit on `Enter`.
 - Annotated output pipeline:
   - `Ctrl+C` and `Ctrl+S` export composed image through existing export service.
+- Pin advanced content baseline:
+  - Clipboard text pin is supported.
+  - Clipboard LaTeX-like text is recognized and pinned in LaTeX mode.
+  - Text/LaTeX pins support copy/save flows (`Copy Text`, `.txt` / `.tex` save).
+- OCR baseline:
+  - `ocr.start` runs system OCR against active artifact bitmap and copies result text to clipboard.
 
 ## Not implemented yet
 
 - Long capture (`capture/long-capture` parity).
-- OCR implementation (action exists but still placeholder).
 - Mark advanced tools:
   - Mosaic.
   - Erase/eraser semantics.
   - Polyline/multi-segment line behavior parity.
-- Pin advanced content types:
-  - Text pin.
-  - LaTeX pin.
 - Recording and timeline capture modes.

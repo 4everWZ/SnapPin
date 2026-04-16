@@ -14,11 +14,19 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <winrt/base.h>
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Graphics.Imaging.h>
+#include <winrt/Windows.Media.Ocr.h>
+#include <winrt/Windows.Storage.Streams.h>
+
 #include <shellapi.h>
 #include <shlobj.h>
 
 #include <cctype>
+#include <cstdio>
 #include <cstring>
+#include <string>
 #include <vector>
 
 namespace snappin {
@@ -47,6 +55,23 @@ std::wstring WidenUtf8(const std::string& value) {
   out.resize(static_cast<size_t>(needed));
   MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
                       out.data(), needed);
+  return out;
+}
+
+std::string NarrowUtf8(const std::wstring& value) {
+  if (value.empty()) {
+    return "";
+  }
+  int needed = WideCharToMultiByte(CP_UTF8, 0, value.data(),
+                                   static_cast<int>(value.size()), nullptr, 0,
+                                   nullptr, nullptr);
+  if (needed <= 0) {
+    return "";
+  }
+  std::string out;
+  out.resize(static_cast<size_t>(needed));
+  WideCharToMultiByte(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
+                      out.data(), needed, nullptr, nullptr);
   return out;
 }
 
@@ -205,6 +230,111 @@ std::optional<CpuBitmap> CaptureRectToCpu(const RectPX& rect,
   bmp.data.p = storage->data();
   *storage_out = std::move(storage);
   return bmp;
+}
+
+std::wstring TrimWide(const std::wstring& value) {
+  size_t begin = 0;
+  while (begin < value.size() && iswspace(value[begin])) {
+    ++begin;
+  }
+  size_t end = value.size();
+  while (end > begin && iswspace(value[end - 1])) {
+    --end;
+  }
+  return value.substr(begin, end - begin);
+}
+
+Result<std::wstring> RunSystemOcr(const CpuBitmap& bmp,
+                                  const std::vector<uint8_t>& pixels) {
+  if (bmp.format != PixelFormat::BGRA8 || bmp.size_px.w <= 0 || bmp.size_px.h <= 0 ||
+      bmp.stride_bytes < bmp.size_px.w * 4) {
+    Error err;
+    err.code = ERR_TARGET_INVALID;
+    err.message = "Artifact bitmap format unsupported";
+    err.retryable = false;
+    err.detail = "ocr_bitmap_format";
+    return Result<std::wstring>::Fail(err);
+  }
+
+  const size_t expected =
+      static_cast<size_t>(bmp.stride_bytes) * static_cast<size_t>(bmp.size_px.h);
+  if (pixels.size() < expected) {
+    Error err;
+    err.code = ERR_TARGET_INVALID;
+    err.message = "Artifact bitmap storage invalid";
+    err.retryable = false;
+    err.detail = "ocr_bitmap_storage";
+    return Result<std::wstring>::Fail(err);
+  }
+
+  try {
+    winrt::init_apartment(winrt::apartment_type::multi_threaded);
+
+    auto engine =
+        winrt::Windows::Media::Ocr::OcrEngine::TryCreateFromUserProfileLanguages();
+    if (!engine) {
+      Error err;
+      err.code = ERR_OPERATION_ABORTED;
+      err.message = "OCR engine unavailable";
+      err.retryable = false;
+      err.detail = "ocr_engine_null";
+      return Result<std::wstring>::Fail(err);
+    }
+
+    const int32_t packed_stride = bmp.size_px.w * 4;
+    const size_t packed_size =
+        static_cast<size_t>(packed_stride) * static_cast<size_t>(bmp.size_px.h);
+    const uint8_t* ocr_data = pixels.data();
+    std::vector<uint8_t> packed;
+    if (bmp.stride_bytes != packed_stride) {
+      packed.resize(packed_size);
+      for (int32_t y = 0; y < bmp.size_px.h; ++y) {
+        const uint8_t* src_row =
+            pixels.data() + static_cast<size_t>(y) * bmp.stride_bytes;
+        uint8_t* dst_row =
+            packed.data() + static_cast<size_t>(y) * packed_stride;
+        std::memcpy(dst_row, src_row, static_cast<size_t>(packed_stride));
+      }
+      ocr_data = packed.data();
+    }
+
+    winrt::Windows::Storage::Streams::DataWriter writer;
+    writer.WriteBytes(winrt::array_view<const uint8_t>(
+        ocr_data, ocr_data + packed_size));
+    auto buffer = writer.DetachBuffer();
+
+    auto software_bitmap =
+        winrt::Windows::Graphics::Imaging::SoftwareBitmap::CreateCopyFromBuffer(
+            buffer, winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Bgra8,
+        bmp.size_px.w, bmp.size_px.h,
+        winrt::Windows::Graphics::Imaging::BitmapAlphaMode::Ignore);
+
+    auto recognized = engine.RecognizeAsync(software_bitmap).get();
+    std::wstring text = TrimWide(recognized.Text().c_str());
+    if (text.empty()) {
+      Error err;
+      err.code = ERR_OPERATION_ABORTED;
+      err.message = "No text recognized";
+      err.retryable = false;
+      err.detail = "ocr_empty";
+      return Result<std::wstring>::Fail(err);
+    }
+    return Result<std::wstring>::Ok(text);
+  } catch (const winrt::hresult_error& ex) {
+    Error err;
+    err.code = ERR_OPERATION_ABORTED;
+    err.message = "OCR failed";
+    err.retryable = true;
+    err.detail = NarrowUtf8(ex.message().c_str());
+    return Result<std::wstring>::Fail(err);
+  } catch (...) {
+    Error err;
+    err.code = ERR_OPERATION_ABORTED;
+    err.message = "OCR failed";
+    err.retryable = true;
+    err.detail = "ocr_unknown_exception";
+    return Result<std::wstring>::Fail(err);
+  }
 }
 
 } // namespace
@@ -728,12 +858,68 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     return Result<void>::Ok();
   }
   if (req.id == "ocr.start") {
-    Error err;
-    err.code = ERR_OPERATION_ABORTED;
-    err.message = "OCR is not implemented yet";
-    err.retryable = true;
-    err.detail = "ocr.start";
-    return Result<void>::Fail(err);
+    if (!artifacts_ || !exporter_ || !state_) {
+      Error err;
+      err.code = ERR_INTERNAL_ERROR;
+      err.message = "OCR unavailable";
+      err.retryable = true;
+      err.detail = "ocr_service_null";
+      return Result<void>::Fail(err);
+    }
+    if (!state_->active_artifact_id.has_value()) {
+      Error err;
+      err.code = ERR_TARGET_INVALID;
+      err.message = "No active artifact";
+      err.retryable = false;
+      err.detail = "no_active_artifact";
+      return Result<void>::Fail(err);
+    }
+
+    std::optional<Artifact> art = artifacts_->Get(*state_->active_artifact_id);
+    if (!art.has_value()) {
+      Error err;
+      err.code = ERR_TARGET_INVALID;
+      err.message = "Artifact missing";
+      err.retryable = false;
+      err.detail = "artifact_missing";
+      return Result<void>::Fail(err);
+    }
+
+    if (!art->base_cpu.has_value() || !art->base_cpu_storage ||
+        art->base_cpu_storage->empty()) {
+      std::shared_ptr<std::vector<uint8_t>> storage;
+      std::optional<CpuBitmap> recaptured =
+          CaptureRectToCpu(art->screen_rect_px, &storage);
+      if (recaptured.has_value()) {
+        art->base_cpu = *recaptured;
+        art->base_cpu_storage = std::move(storage);
+        artifacts_->Put(*art);
+      }
+    }
+
+    if (!art->base_cpu.has_value() || !art->base_cpu_storage ||
+        art->base_cpu_storage->empty() ||
+        art->base_cpu->format != PixelFormat::BGRA8 ||
+        art->base_cpu->stride_bytes < art->base_cpu->size_px.w * 4) {
+      Error err;
+      err.code = ERR_TARGET_INVALID;
+      err.message = "Artifact bitmap format unsupported";
+      err.retryable = false;
+      err.detail = "artifact_bitmap_unsupported";
+      return Result<void>::Fail(err);
+    }
+
+    Result<std::wstring> ocr =
+        RunSystemOcr(*art->base_cpu, *art->base_cpu_storage);
+    if (!ocr.ok) {
+      return Result<void>::Fail(ocr.error);
+    }
+
+    Result<void> copied = exporter_->CopyTextToClipboard(ocr.value);
+    if (!copied.ok) {
+      return copied;
+    }
+    return Result<void>::Ok();
   }
   if (req.id == "artifact.dismiss") {
     if (annotate_window_ && annotate_window_->IsVisible()) {

@@ -19,7 +19,7 @@ Artifact context actions:
 - `export.save_image`
 - `pin.create_from_artifact`
 - `annotate.open`
-- `ocr.start` (currently returns explicit not-implemented error)
+- `ocr.start` (runs system OCR and copies recognized text to clipboard)
 - `artifact.dismiss`
 
 Pin context actions:
@@ -28,6 +28,11 @@ Pin context actions:
 - `pin.save_focused`
 - `pin.close_focused`
 - `pin.close_all`
+
+Pin focused interactions:
+
+- `Esc` and double-click close current pin.
+- `T` toggles always-on-top.
 
 Mark session shortcuts:
 
