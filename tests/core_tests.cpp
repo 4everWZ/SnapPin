@@ -1098,6 +1098,35 @@ bool OcrResultWindowShowsSelectableText() {
   return selectable_readonly && wcscmp(text, expected) == 0;
 }
 
+bool OcrResultWindowSelectsTextOnShow() {
+  snappin::OcrResultWindow window;
+  if (!window.Create(GetModuleHandleW(nullptr))) {
+    return false;
+  }
+
+  const wchar_t expected[] = L"Selected OCR text";
+  window.ShowText(expected);
+
+  HWND hwnd = FindWindowW(L"SnapPinOcrResultWindow", L"SnapPin OCR Result");
+  if (!hwnd || !window.IsVisible()) {
+    window.Destroy();
+    return false;
+  }
+
+  HWND edit = FindChildClass(hwnd, L"EDIT");
+  if (!edit) {
+    window.Destroy();
+    return false;
+  }
+
+  DWORD start = 0;
+  DWORD end = 0;
+  SendMessageW(edit, EM_GETSEL, reinterpret_cast<WPARAM>(&start),
+               reinterpret_cast<LPARAM>(&end));
+  window.Destroy();
+  return start == 0 && end == wcslen(expected);
+}
+
 bool OcrResultWindowCopyButtonInvokesCallback() {
   snappin::OcrResultWindow window;
   if (!window.Create(GetModuleHandleW(nullptr))) {
@@ -1395,6 +1424,10 @@ int main() {
 
   if (!OcrResultWindowShowsSelectableText()) {
     return 54;
+  }
+
+  if (!OcrResultWindowSelectsTextOnShow()) {
+    return 82;
   }
 
   if (!OcrResultWindowCopyButtonInvokesCallback()) {

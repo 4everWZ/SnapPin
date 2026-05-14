@@ -6,7 +6,7 @@
 - Keep selection visuals stable under DPI scaling.
 - Support artifact actions `Copy`, `Save`, `Pin`, `Mark`, `OCR`, and `Close`.
 - Keep scrolling capture explicitly outside the current implemented baseline.
-- Treat OCR as a basic artifact action with a selectable result window and repeat-copy action, not yet as reference-level pinned-image OCR overlay recognition.
+- Treat OCR as a basic artifact action with an auto-selected, selectable result window and repeat-copy action, not yet as reference-level pinned-image OCR overlay recognition.
 
 ## Math / Logic / Interfaces
 
@@ -25,7 +25,7 @@ Core capture interfaces and action IDs:
 - `export.save_image`
 - `pin.create_from_artifact`
 - `annotate.open`
-- `ocr.start` (runs Windows system OCR over the active artifact bitmap, an OCR region, or a focused image pin, copies recognized text to clipboard, shows a selectable result window with a `Copy` action, and reports success/failure through a tray notification)
+- `ocr.start` (runs Windows system OCR over the active artifact bitmap, an OCR region, or a focused image pin, copies recognized text to clipboard, shows an auto-selected selectable result window with a `Copy` action, and reports success/failure through a tray notification)
 - `artifact.dismiss`
 
 ## Code Mapping
@@ -56,5 +56,5 @@ Required verification for capture-related changes:
   - Start capture with `Ctrl+1`.
   - Select area and validate mask/preview alignment.
   - Trigger `Copy`, `Save`, `Pin`, `OCR`, and `Close` from toolbar.
-  - For OCR, validate whole-artifact OCR and selected-region OCR, then confirm recognized text reaches the clipboard, appears in the selectable result window, can be copied again from that window, and a tray notification reports success or an explicit OCR error.
+  - For OCR, validate whole-artifact OCR and selected-region OCR, then confirm recognized text reaches the clipboard, appears selected in the selectable result window, can be copied again from that window, and a tray notification reports success or an explicit OCR error.
   - Confirm `Esc` cancels overlay without stale session state.

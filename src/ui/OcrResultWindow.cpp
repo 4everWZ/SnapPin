@@ -78,6 +78,10 @@ void OcrResultWindow::ShowText(const std::wstring& text) {
   }
   ShowWindow(hwnd_, SW_SHOWNORMAL);
   SetForegroundWindow(hwnd_);
+  if (edit_text_) {
+    SetFocus(edit_text_);
+    SendMessageW(edit_text_, EM_SETSEL, 0, -1);
+  }
   visible_ = true;
 }
 

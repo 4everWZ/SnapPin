@@ -70,7 +70,7 @@ tracked documentation.
   - Text/LaTeX pins support copy/save flows (`Copy Text`, `.txt` / `.tex` save).
 - OCR baseline:
   - `ocr.start` runs Windows system OCR against the active artifact bitmap, selected OCR region, or focused image pin, then copies result text to clipboard and shows a selectable OCR result window.
-  - The OCR result window exposes a `Copy` action that routes the currently displayed text back through the export clipboard path.
+  - The OCR result window auto-selects displayed text and exposes a `Copy` action that routes the currently displayed text back through the export clipboard path.
   - `ocr.start` declares optional `source`, `x`, `y`, `w`, and `h` action parameters so focused-pin and selected-region OCR are visible in the action contract.
   - OCR success emits a text progress event that carries the recognized text as UTF-8 for the result window.
   - Image pin context menu exposes OCR; text and LaTeX pins are not treated as OCR image sources.
@@ -88,7 +88,7 @@ tracked documentation.
   - Full reference-style partial erasing and mosaic reverse-erase behavior are not implemented.
   - Missing current reference app release/beta additions include Auto Mosaic, synced mosaic operations, advanced serial formats/settings, text arrows, text background color configuration beyond the basic fill toggle, and reference-style centered/configurable watermark workflow.
 - OCR parity:
-  - Current OCR copies one recognized text result to clipboard and displays it in a selectable result window with a repeat-copy action.
+  - Current OCR copies one recognized text result to clipboard and displays it in a selectable, auto-selected result window with a repeat-copy action.
   - Focused image pin OCR now exists as a baseline source path, but reference-level selectable recognized text overlays on pinned images are still missing.
   - Missing reference-level OCR includes automatic/manual pin OCR overlay UX, formula recognition, QR/barcode recognition, table recognition, language/model configuration, and advanced result management.
 - Pin parity:
