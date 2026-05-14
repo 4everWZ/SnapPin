@@ -2287,7 +2287,8 @@ void AnnotateWindow::DrawHighlighter(HDC hdc, const Annotation& ann) const {
 
   BLENDFUNCTION blend = {};
   blend.BlendOp = AC_SRC_OVER;
-  blend.SourceConstantAlpha = 110;
+  blend.SourceConstantAlpha =
+      static_cast<BYTE>(HighlighterAlphaForStrokeWidth(ann.thickness));
   AlphaBlend(hdc, left, top, w, h, blend_dc, 0, 0, w, h, blend);
 
   SelectObject(blend_dc, old_bitmap);
