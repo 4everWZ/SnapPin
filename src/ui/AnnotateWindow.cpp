@@ -20,7 +20,7 @@ const int kToolbarPadding = 4;
 const int kButtonWidth = 72;
 const int kButtonHeight = 24;
 const int kButtonGap = 3;
-const int kLeftToolbarButtonCount = 17;
+const int kLeftToolbarButtonCount = 18;
 const int kRightToolbarButtonCount = 5;
 const int kHandleSize = 8;
 const int kHitTolerance = 8;
@@ -48,6 +48,7 @@ const INT_PTR kCmdBlur = 5219;
 const INT_PTR kCmdPolyline = 5220;
 const INT_PTR kCmdWatermark = 5221;
 const INT_PTR kCmdMagnifier = 5222;
+const INT_PTR kCmdTextBackground = 5223;
 
 int ClampInt(int value, int lo, int hi) {
   if (value < lo) {
@@ -289,6 +290,7 @@ bool AnnotateWindow::BeginSession(const RectPX& screen_rect,
   serial_entry_text_.clear();
   serial_entry_target_index_ = -2;
   next_watermark_text_.clear();
+  next_text_background_ = false;
 
   const int min_toolbar_width = AnnotateToolbarMinWidth(
       kLeftToolbarButtonCount, kRightToolbarButtonCount, kButtonWidth,
@@ -430,6 +432,9 @@ LRESULT AnnotateWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
           return 0;
         case kCmdText:
           SetTool(Tool::Text);
+          return 0;
+        case kCmdTextBackground:
+          ToggleTextBackground();
           return 0;
         case kCmdReselect:
           EmitCommand(Command::Reselect);
@@ -862,6 +867,10 @@ void AnnotateWindow::EnsureControls() {
   btn_text_ = CreateWindowW(L"BUTTON", L"Text", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                             0, 0, kButtonWidth, kButtonHeight, hwnd_,
                             reinterpret_cast<HMENU>(kCmdText), instance_, nullptr);
+  btn_text_bg_ = CreateWindowW(
+      L"BUTTON", L"Text BG", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      kButtonWidth, kButtonHeight, hwnd_,
+      reinterpret_cast<HMENU>(kCmdTextBackground), instance_, nullptr);
   btn_reselect_ = CreateWindowW(
       L"BUTTON", L"Range", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdReselect),
@@ -899,7 +908,7 @@ void AnnotateWindow::LayoutControls() {
                          btn_polyline_, btn_arrow_, btn_serial_, btn_mosaic_,
                          btn_blur_, btn_eraser_, btn_highlighter_,
                          btn_spotlight_, btn_watermark_, btn_magnifier_,
-                         btn_pencil_, btn_text_, btn_reselect_};
+                         btn_pencil_, btn_text_, btn_text_bg_, btn_reselect_};
   for (HWND btn : left_buttons) {
     if (btn) {
       SetWindowPos(btn, nullptr, x_left, y, kButtonWidth, kButtonHeight,
@@ -948,6 +957,15 @@ void AnnotateWindow::UpdateToolButtons() {
                  tool_ == Tool::Magnifier ? L"[Magnifier]" : L"Magnifier");
   SetWindowTextW(btn_pencil_, tool_ == Tool::Pencil ? L"[Pencil]" : L"Pencil");
   SetWindowTextW(btn_text_, tool_ == Tool::Text ? L"[Text]" : L"Text");
+  bool text_bg_active = next_text_background_;
+  if (selected_index_ >= 0 &&
+      selected_index_ < static_cast<int>(annotations_.size()) &&
+      annotations_[static_cast<size_t>(selected_index_)].type ==
+          AnnotationType::Text) {
+    text_bg_active =
+        annotations_[static_cast<size_t>(selected_index_)].text_background;
+  }
+  SetWindowTextW(btn_text_bg_, text_bg_active ? L"[Text BG]" : L"Text BG");
 }
 
 void AnnotateWindow::SetTool(Tool tool) {
@@ -960,6 +978,21 @@ void AnnotateWindow::SetTool(Tool tool) {
   serial_entry_target_index_ = -2;
   if (hwnd_) {
     SetFocus(hwnd_);
+  }
+  UpdateToolButtons();
+  Invalidate();
+}
+
+void AnnotateWindow::ToggleTextBackground() {
+  if (selected_index_ >= 0 &&
+      selected_index_ < static_cast<int>(annotations_.size()) &&
+      annotations_[static_cast<size_t>(selected_index_)].type ==
+          AnnotationType::Text) {
+    Annotation& ann = annotations_[static_cast<size_t>(selected_index_)];
+    ann.text_background = !ann.text_background;
+    PushHistory();
+  } else {
+    next_text_background_ = !next_text_background_;
   }
   UpdateToolButtons();
   Invalidate();
@@ -1207,6 +1240,7 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
     text.type = AnnotationType::Text;
     text.color = color_;
     text.text_size = 22;
+    text.text_background = next_text_background_;
     text.p1 = canvas_pt;
     text.p2 = canvas_pt;
     annotations_.push_back(text);
@@ -2083,6 +2117,19 @@ void AnnotateWindow::DrawAnnotation(HDC hdc, const Annotation& ann,
       SetBkMode(hdc, TRANSPARENT);
       SetTextColor(hdc, ann.color);
       const std::wstring draw = ann.text.empty() ? L"Text" : ann.text;
+      if (ann.text_background) {
+        SIZE extent = {};
+        GetTextExtentPoint32W(hdc, draw.c_str(), static_cast<int>(draw.size()),
+                              &extent);
+        const int text_w = static_cast<int>(extent.cx);
+        const int text_h = static_cast<int>(extent.cy);
+        RECT bg = {ann.p1.x - 3, ann.p1.y - 2,
+                   ann.p1.x + std::max(12, text_w) + 6,
+                   ann.p1.y + std::max(ann.text_size, text_h) + 4};
+        HBRUSH bg_brush = CreateSolidBrush(RGB(255, 255, 210));
+        FillRect(hdc, &bg, bg_brush);
+        DeleteObject(bg_brush);
+      }
       TextOutW(hdc, ann.p1.x, ann.p1.y, draw.c_str(),
                static_cast<int>(draw.size()));
       SelectObject(hdc, old_font);
@@ -2658,6 +2705,7 @@ void AnnotateWindow::ShowContextMenu(POINT screen_pt) {
   AppendMenuW(menu, MF_STRING, kCmdMagnifier, L"Tool: Magnifier");
   AppendMenuW(menu, MF_STRING, kCmdPencil, L"Tool: Pencil");
   AppendMenuW(menu, MF_STRING, kCmdText, L"Tool: Text");
+  AppendMenuW(menu, MF_STRING, kCmdTextBackground, L"Text Background");
   AppendMenuW(menu, MF_STRING, kCmdReselect, L"Reselect Range (R)");
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kCmdUndo, L"Undo");

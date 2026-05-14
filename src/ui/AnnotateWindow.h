@@ -111,6 +111,7 @@ private:
     std::wstring text;         // Text payload.
     int text_size = 20;
     int serial_value = 0;
+    bool text_background = false;
   };
 
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam,
@@ -124,6 +125,7 @@ private:
   void Invalidate();
   bool ApplySerialEntryChar(wchar_t ch);
   bool ApplyWatermarkEntryChar(wchar_t ch);
+  void ToggleTextBackground();
 
   RECT CanvasRectClient() const;
   bool ToCanvasPoint(POINT client_pt, POINT* out_canvas) const;
@@ -182,6 +184,7 @@ private:
   std::wstring serial_entry_text_;
   int serial_entry_target_index_ = -2;
   std::wstring next_watermark_text_;
+  bool next_text_background_ = false;
 
   DragMode drag_mode_ = DragMode::None;
   bool dragging_ = false;
@@ -218,6 +221,7 @@ private:
   HWND btn_magnifier_ = nullptr;
   HWND btn_pencil_ = nullptr;
   HWND btn_text_ = nullptr;
+  HWND btn_text_bg_ = nullptr;
   HWND btn_reselect_ = nullptr;
   HWND btn_undo_ = nullptr;
   HWND btn_redo_ = nullptr;

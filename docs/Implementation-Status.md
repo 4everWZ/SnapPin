@@ -56,10 +56,11 @@ tracked documentation.
   - Shift-lock for line/arrow angle snapping.
 - Mark edit baseline:
   - Rect move/resize, line/arrow move and endpoint drag, basic polyline node drag / whole-polyline move, segment double-click node insertion, selected polyline node deletion, text move.
-  - Text entry with inline typing and commit on `Enter`.
+  - Text entry with inline typing, `Text BG` background fill toggle, and commit on `Enter`.
 - Annotated output pipeline:
   - `Ctrl+C` and `Ctrl+S` export composed image through existing export service.
   - `snappin_tests` covers Rect, Ellipse, Line, Polyline, Arrow, Serial, Mosaic, Blur, Highlighter, Spotlight, Watermark, Magnifier, Pencil, and Text creation paths through `Copy` and verifies composed image pixels differ from the source bitmap.
+  - `snappin_tests` covers `Text BG` toolbar state and verifies text background fill changes composed output pixels.
   - `snappin_tests` covers basic Polyline node editing by verifying selected node drag, segment double-click node insertion, and selected-node deletion semantics.
   - `snappin_tests` covers Eraser deletion of an editable annotation and verifies copied pixels return to the source bitmap.
   - `snappin_tests` covers basic Eraser path-segment removal on Polyline by verifying remaining segments still change copied pixels.
@@ -78,13 +79,13 @@ tracked documentation.
 ## Partially implemented / not reference parity
 
 - Mark parity:
-  - Current tools are limited to `Select`, `Rect`, `Ellipse`, `Line`, basic multi-click/editable `Polyline`, `Arrow`, `Serial`, basic rectangular `Mosaic` with wheel strength, basic rectangular `Blur` with wheel strength, basic whole-object/path-segment `Eraser`, basic freehand `Highlighter`, basic rectangular `Spotlight` with wheel-controlled dim strength, basic rectangular `Watermark` with direct text entry, basic rectangular `Magnifier` with wheel-controlled zoom, `Pencil`, and `Text`.
+  - Current tools are limited to `Select`, `Rect`, `Ellipse`, `Line`, basic multi-click/editable `Polyline`, `Arrow`, `Serial`, basic rectangular `Mosaic` with wheel strength, basic rectangular `Blur` with wheel strength, basic whole-object/path-segment `Eraser`, basic freehand `Highlighter`, basic rectangular `Spotlight` with wheel-controlled dim strength, basic rectangular `Watermark` with direct text entry, basic rectangular `Magnifier` with wheel-controlled zoom, `Pencil`, and `Text` with a background fill toggle.
   - Automated pixel verification currently covers baseline drawing-tool composed-copy smoke paths and Eraser deletion, not advanced/deferred reference app mark tools or manual UI workflow.
   - Missing reference-level mark behavior includes smart erase; Polyline supports basic node drag, whole move, segment double-click node insertion, and selected-node deletion, but richer editing parity is still missing. Mosaic, Blur, Watermark, and Magnifier exist only as basic implementations without advanced editing/configuration parity; Watermark direct text entry and Magnifier wheel zoom are baselines, not the full advanced workflows.
   - reference-style highlighter modes and configuration are not implemented.
   - reference-style spotlight modes and richer configuration are not implemented.
   - Full reference-style partial erasing and mosaic reverse-erase behavior are not implemented.
-  - Missing current reference app release/beta additions include Auto Mosaic, synced mosaic operations, advanced serial formats/settings, text arrows, text background color configuration, and reference-style centered/configurable watermark workflow.
+  - Missing current reference app release/beta additions include Auto Mosaic, synced mosaic operations, advanced serial formats/settings, text arrows, text background color configuration beyond the basic fill toggle, and reference-style centered/configurable watermark workflow.
 - OCR parity:
   - Current OCR copies one recognized text result to clipboard and displays it in a selectable result window.
   - Focused image pin OCR now exists as a baseline source path, but reference-level selectable recognized text overlays on pinned images are still missing.

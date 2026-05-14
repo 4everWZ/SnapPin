@@ -976,6 +976,97 @@ bool AnnotateWindowWatermarkDirectTextChangesCopiedPixels() {
          *default_pixels != *custom_pixels;
 }
 
+std::shared_ptr<std::vector<uint8_t>>
+AnnotateWindowCopiesTextPixelsWithBackground(bool background_enabled) {
+  snappin::AnnotateWindow annotate;
+  if (!annotate.Create(GetModuleHandleW(nullptr))) {
+    return {};
+  }
+
+  constexpr int width = 48;
+  constexpr int height = 32;
+  constexpr int stride = width * 4;
+  auto source = MakeAnnotateTestSource(width, height, stride);
+
+  bool callback_seen = false;
+  snappin::AnnotateWindow::Command seen_command =
+      snappin::AnnotateWindow::Command::Close;
+  std::shared_ptr<std::vector<uint8_t>> copied_pixels;
+  snappin::SizePX copied_size = {};
+  int32_t copied_stride = 0;
+  annotate.SetCommandCallback(
+      [&](snappin::AnnotateWindow::Command command,
+          std::shared_ptr<std::vector<uint8_t>> pixels,
+          const snappin::SizePX& size_px, int32_t stride_bytes) {
+        callback_seen = true;
+        seen_command = command;
+        copied_pixels = std::move(pixels);
+        copied_size = size_px;
+        copied_stride = stride_bytes;
+      });
+
+  if (!annotate.BeginSession({100, 100, width, height}, source,
+                             {width, height}, stride)) {
+    annotate.Destroy();
+    return {};
+  }
+
+  HWND hwnd = FindWindowW(L"SnapPinAnnotateWindow", L"SnapPin Mark");
+  if (!hwnd) {
+    annotate.Destroy();
+    return {};
+  }
+
+  HWND text_bg_button = FindAnnotateButton(hwnd, L"Text BG");
+  HWND text_button = FindAnnotateButton(hwnd, L"Text");
+  HWND copy_button = FindAnnotateButton(hwnd, L"Copy");
+  if (!text_bg_button || !text_button || !copy_button) {
+    annotate.Destroy();
+    return {};
+  }
+  if (background_enabled) {
+    SendMessageW(text_bg_button, BM_CLICK, 0, 0);
+  }
+  SendMessageW(text_button, BM_CLICK, 0, 0);
+
+  constexpr int toolbar_height = 34;
+  SendMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON,
+               MAKELPARAM(8, toolbar_height + 12));
+  SendMessageW(hwnd, WM_LBUTTONUP, 0, MAKELPARAM(8, toolbar_height + 12));
+  SendMessageW(hwnd, WM_CHAR, static_cast<WPARAM>(L'A'), 0);
+  SendMessageW(copy_button, BM_CLICK, 0, 0);
+  annotate.Destroy();
+
+  if (!callback_seen ||
+      seen_command != snappin::AnnotateWindow::Command::Copy ||
+      !copied_pixels) {
+    return {};
+  }
+  if (copied_size.w != width || copied_size.h != height ||
+      copied_stride != stride ||
+      copied_pixels->size() != source->size()) {
+    return {};
+  }
+  return copied_pixels;
+}
+
+bool AnnotateWindowTextBackgroundButtonTogglesState() {
+  return WithAnnotateWindow([](HWND hwnd) {
+    HWND button = FindAnnotateButton(hwnd, L"Text BG");
+    if (!button) {
+      return false;
+    }
+    SendMessageW(button, BM_CLICK, 0, 0);
+    return FindAnnotateButton(hwnd, L"[Text BG]") != nullptr;
+  });
+}
+
+bool AnnotateWindowTextBackgroundChangesCopiedPixels() {
+  auto plain_pixels = AnnotateWindowCopiesTextPixelsWithBackground(false);
+  auto bg_pixels = AnnotateWindowCopiesTextPixelsWithBackground(true);
+  return plain_pixels && bg_pixels && *plain_pixels != *bg_pixels;
+}
+
 bool OcrResultWindowShowsSelectableText() {
   snappin::OcrResultWindow window;
   if (!window.Create(GetModuleHandleW(nullptr))) {
@@ -1109,6 +1200,10 @@ int main() {
     return 65;
   }
 
+  if (!AnnotateWindowHasButton(L"Text BG")) {
+    return 78;
+  }
+
   if (!AnnotateWindowSelectsTool(L"Ellipse", L"[Ellipse]")) {
     return 8;
   }
@@ -1147,6 +1242,10 @@ int main() {
 
   if (!AnnotateWindowSelectsTool(L"Magnifier", L"[Magnifier]")) {
     return 66;
+  }
+
+  if (!AnnotateWindowTextBackgroundButtonTogglesState()) {
+    return 79;
   }
 
   if (!AnnotateWindowCopiesComposedToolPixels(nullptr,
@@ -1252,6 +1351,10 @@ int main() {
   if (!AnnotateWindowCopiesComposedToolPixels(L"Text",
                                              AnnotateCreateGesture::Click)) {
     return 47;
+  }
+
+  if (!AnnotateWindowTextBackgroundChangesCopiedPixels()) {
+    return 80;
   }
 
   if (!AnnotateWindowEraserRemovesRectFromCopyPixels()) {
