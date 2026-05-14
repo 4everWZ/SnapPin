@@ -37,6 +37,7 @@ public:
   Result<void> CloseAll();
   Result<void> CopyFocused();
   Result<void> SaveFocused();
+  Result<Artifact> BuildFocusedArtifact();
 
   bool HandleWindowCommand(WPARAM wparam, LPARAM lparam);
 

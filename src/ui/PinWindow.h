@@ -26,6 +26,7 @@ public:
     DestroySelf = 4,
     CloseAll = 5,
     DestroyAll = 6,
+    OcrSelf = 7,
   };
 
   using FocusCallback = std::function<void(Id64)>;
@@ -48,6 +49,8 @@ public:
   Id64 pin_id() const;
   bool is_locked() const;
   ContentKind content_kind() const;
+  static bool SupportsCommandForContent(ContentKind content_kind,
+                                        Command command);
 
   void SetCallbacks(FocusCallback on_focus, CommandCallback on_command);
 
@@ -89,5 +92,4 @@ private:
 };
 
 } // namespace snappin
-
 

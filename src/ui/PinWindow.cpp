@@ -20,6 +20,7 @@ const int kMenuCloseAll = 4105;
 const int kMenuDestroyAll = 4106;
 const int kMenuToggleLock = 4107;
 const int kMenuToggleTopMost = 4108;
+const int kMenuOcr = 4109;
 
 constexpr float kScaleMin = 0.10f;
 constexpr float kScaleMax = 5.0f;
@@ -146,6 +147,14 @@ Id64 PinWindow::pin_id() const { return pin_id_; }
 bool PinWindow::is_locked() const { return locked_; }
 
 PinWindow::ContentKind PinWindow::content_kind() const { return content_kind_; }
+
+bool PinWindow::SupportsCommandForContent(ContentKind content_kind,
+                                          Command command) {
+  if (command == Command::OcrSelf) {
+    return content_kind == ContentKind::Image;
+  }
+  return true;
+}
 
 void PinWindow::SetCallbacks(FocusCallback on_focus, CommandCallback on_command) {
   on_focus_ = std::move(on_focus);
@@ -432,6 +441,8 @@ void PinWindow::ApplyOpacity(int wheel_delta) {
 }
 
 void PinWindow::ShowContextMenu(POINT screen_pt) {
+  NotifyFocus();
+
   HMENU menu = CreatePopupMenu();
   if (!menu) {
     return;
@@ -441,6 +452,9 @@ void PinWindow::ShowContextMenu(POINT screen_pt) {
   AppendMenuW(menu, MF_STRING, kMenuCopy, image_pin ? L"Copy" : L"Copy Text");
   AppendMenuW(menu, MF_STRING, kMenuSave,
               image_pin ? L"Save Image" : (latex_pin ? L"Save .tex" : L"Save .txt"));
+  if (SupportsCommandForContent(content_kind_, Command::OcrSelf)) {
+    AppendMenuW(menu, MF_STRING, kMenuOcr, L"OCR");
+  }
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kMenuClose, L"Close");
   AppendMenuW(menu, MF_STRING, kMenuDestroy, L"Destroy");
@@ -480,6 +494,10 @@ void PinWindow::ShowContextMenu(POINT screen_pt) {
     on_command_(pin_id_, Command::SaveSelf);
     return;
   }
+  if (cmd == kMenuOcr) {
+    on_command_(pin_id_, Command::OcrSelf);
+    return;
+  }
   if (cmd == kMenuClose) {
     on_command_(pin_id_, Command::CloseSelf);
     return;
@@ -505,6 +523,5 @@ void PinWindow::NotifyFocus() {
 }
 
 } // namespace snappin
-
 
 

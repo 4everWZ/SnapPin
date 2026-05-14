@@ -9,11 +9,12 @@
 
 Roadmap phases:
 
-1. Baseline hardening for capture/mark/pin workflows.
-2. Mark feature expansion (mosaic/erase/polyline parity).
-3. Pin content expansion (text and LaTeX pin modes).
-4. Capture expansion (scrolling capture).
-5. OCR and diagnostics completion.
+1. Documentation and parity audit against current reference app stable/beta references.
+2. Baseline hardening for capture/mark/pin/OCR workflows already present in code.
+3. Mark feature expansion toward reference parity: advanced polyline add/remove node controls, advanced highlighter/spotlight modes, advanced blur/smart erase, reference-style partial erasing, Auto Mosaic/synced mosaic operations, configurable/centered watermark workflow, advanced magnifier controls, and advanced serial formats/settings.
+4. OCR expansion toward reference parity: pinned-image text recognition, selectable/copyable OCR text, formula recognition, QR/barcode recognition, table recognition, configuration, and diagnostics.
+5. Pin workflow expansion: file/color pins, pin groups, mouse passthrough, multi-select alignment, z-order persistence, and pin-side annotate/OCR entry points.
+6. Capture expansion: scrolling capture, GIF/recording, and delayed/quick recording workflows.
 
 Gate rule per phase:
 
@@ -31,6 +32,7 @@ Primary modules affected by roadmap items:
 ## Tradeoffs
 
 - Features that require large new modules are intentionally sequenced after baseline reliability, even when reference app supports richer behavior today.
+- Current reference app beta features are tracked as references, but formal release readiness requires an explicit SnapPin acceptance target before beta-only parity is considered mandatory.
 
 ## Verification
 

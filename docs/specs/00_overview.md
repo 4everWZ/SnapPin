@@ -15,17 +15,18 @@ SnapPin goals for this repository:
 Current in-scope product surface:
 
 - Static capture workflow (`Ctrl+1`) with frozen-frame selection.
-- Artifact actions (`Copy`, `Save`, `Pin`, `Mark`, `Close`) and context-aware errors.
-- Pin baseline (`Ctrl+2`, focused pin shortcuts, lock, close/destroy operations).
-- Mark baseline in capture context (Rect/Line/Arrow/Pencil/Text, undo/redo, reselect).
+- Artifact actions (`Copy`, `Save`, `Pin`, `Mark`, `OCR`, `Close`) and context-aware errors.
+- Pin baseline (`Ctrl+2`, focused pin shortcuts, lock, close/destroy operations, clipboard text/LaTeX-like fallback).
+- Mark baseline in capture context (Rect/Ellipse/Line/Polyline/Arrow/Serial/Mosaic/Blur/Eraser/Highlighter/Spotlight/Watermark/Magnifier/Pencil/Text, undo/redo, reselect).
+- OCR baseline for active artifact bitmap, user-selected OCR region, or focused image pin, with recognized text copied to clipboard and shown in a selectable result window.
 
 Current out-of-scope or deferred surface:
 
 - Scrolling capture.
 - Recording.
-- OCR workflow.
-- Advanced mark tools (mosaic, erase, polyline parity).
-- Non-image pin types (text pin, LaTeX pin).
+- reference-level OCR overlays on pinned images, formula recognition, QR/barcode recognition, table recognition, and advanced OCR result management.
+- Advanced mark tools (advanced polyline add/remove node controls, advanced blur/smart erase, advanced highlighter/spotlight modes, reference-style partial erasing, Auto Mosaic/synced mosaic operations, configurable/centered watermark workflow, advanced magnifier controls, and advanced serial formats/settings).
+- Non-clipboard pin types such as file pin, color pin, pin groups, and mouse passthrough.
 
 ## Active Spec Topology
 

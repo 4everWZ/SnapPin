@@ -17,6 +17,8 @@ public:
 
   bool Init(HWND hwnd, UINT callback_message, UINT icon_id);
   void Cleanup();
+  bool ShowNotification(const wchar_t* title, const wchar_t* message,
+                        bool is_error);
   void ShowContextMenu(const POINT& pt);
   void OnTaskbarCreated();
 

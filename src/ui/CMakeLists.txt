@@ -2,8 +2,12 @@ add_library(snappin_ui STATIC
   UiStub.cpp
   OverlayWindow.cpp
   OverlayWindow.h
+  OcrResultWindow.cpp
+  OcrResultWindow.h
   ToolbarWindow.cpp
   ToolbarWindow.h
+  AnnotationEffects.h
+  AnnotateLayout.h
   AnnotateWindow.cpp
   AnnotateWindow.h
   PinWindow.cpp

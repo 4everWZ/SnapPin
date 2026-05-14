@@ -33,18 +33,10 @@ Out of scope for current stage:
 - Per-monitor DPI awareness
 - Single-instance tray app
 
-## Reference links for feature parity study
+## Reference labels for feature parity study
 
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
+Direct reference URLs are intentionally kept out of tracked documentation.
+
+- Capture: static capture, long capture.
+- Pin: base use, image, text, LaTeX.
+- Mark: base use, geometry, line, arrow, mosaic, text, erase.

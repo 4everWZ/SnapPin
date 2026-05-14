@@ -6,10 +6,12 @@
 #include "CaptureFreeze.h"
 #include "ExportService.h"
 #include "KeybindingsService.h"
+#include "OcrResultEvent.h"
 #include "PinManager.h"
 #include "SingleInstance.h"
 #include "TrayIcon.h"
 #include "OverlayWindow.h"
+#include "OcrResultWindow.h"
 #include "ToolbarWindow.h"
 #include "AnnotateWindow.h"
 #include "StatsService.h"
@@ -24,7 +26,9 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -51,8 +55,14 @@ std::unique_ptr<snappin::ToolbarWindow> g_toolbar;
 std::unique_ptr<snappin::AnnotateWindow> g_annotate;
 std::unique_ptr<snappin::StatsService> g_stats;
 std::unique_ptr<snappin::SettingsWindow> g_settings;
+std::unique_ptr<snappin::OcrResultWindow> g_ocr_result;
 std::unique_ptr<snappin::PinManager> g_pin_manager;
 bool g_ocr_region_select_mode = false;
+std::unordered_map<uint64_t, std::wstring> g_ocr_text_by_correlation;
+
+std::wstring WidenAscii(const std::string& text) {
+  return std::wstring(text.begin(), text.end());
+}
 
 void SetSessionCopyHotkey(bool enabled) {
   if (!g_main_hwnd) {
@@ -239,6 +249,16 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
       break;
     }
     case snappin::PinManager::kWindowCommandMessage:
+      if (static_cast<snappin::PinWindow::Command>(lparam) ==
+          snappin::PinWindow::Command::OcrSelf) {
+        if (g_action_dispatcher) {
+          snappin::ActionInvoke invoke;
+          invoke.id = "ocr.start";
+          invoke.kv.push_back({"source", "focused_pin"});
+          g_action_dispatcher->Invoke(invoke);
+        }
+        return 0;
+      }
       if (g_pin_manager) {
         g_pin_manager->HandleWindowCommand(wparam, lparam);
       }
@@ -374,6 +394,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   g_settings = std::make_unique<snappin::SettingsWindow>();
   if (!g_settings->Create(instance)) {
     OutputDebugStringA("Settings create failed\n");
+  }
+  g_ocr_result = std::make_unique<snappin::OcrResultWindow>();
+  if (!g_ocr_result->Create(instance)) {
+    OutputDebugStringA("OCR result window create failed\n");
   }
   g_overlay = std::make_unique<snappin::OverlayWindow>();
   if (!g_overlay->Create(instance)) {
@@ -716,6 +740,33 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         ev.type == snappin::ActionEvent::Type::Succeeded) {
       SetSessionCopyHotkey(false);
     }
+    if (ev.action_id == "ocr.start") {
+      if (ev.type == snappin::ActionEvent::Type::Progress) {
+        std::optional<std::wstring> text =
+            snappin::OcrTextFromProgressEvent(ev);
+        if (text.has_value()) {
+          g_ocr_text_by_correlation[ev.correlation_id.value] = *text;
+        }
+      }
+      if (ev.type == snappin::ActionEvent::Type::Succeeded) {
+        auto text_it = g_ocr_text_by_correlation.find(ev.correlation_id.value);
+        if (text_it != g_ocr_text_by_correlation.end()) {
+          if (g_ocr_result) {
+            g_ocr_result->ShowText(text_it->second);
+          }
+          g_ocr_text_by_correlation.erase(text_it);
+        }
+        g_tray.ShowNotification(L"SnapPin OCR", L"Text copied to clipboard",
+                                false);
+      } else if (ev.type == snappin::ActionEvent::Type::Failed) {
+        g_ocr_text_by_correlation.erase(ev.correlation_id.value);
+        std::wstring message = L"OCR failed";
+        if (ev.error.has_value() && !ev.error->message.empty()) {
+          message = WidenAscii(ev.error->message);
+        }
+        g_tray.ShowNotification(L"SnapPin OCR", message.c_str(), true);
+      }
+    }
     if (g_config_service && !g_config_service->DebugEnabled(false)) {
       return;
     }
@@ -749,8 +800,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   g_annotate.reset();
   g_stats.reset();
   g_settings.reset();
+  g_ocr_result.reset();
   g_pin_manager.reset();
   return static_cast<int>(msg.wParam);
 }
-
-

@@ -19,7 +19,7 @@ Artifact context actions:
 - `export.save_image`
 - `pin.create_from_artifact`
 - `annotate.open`
-- `ocr.start` (runs system OCR and copies recognized text to clipboard)
+- `ocr.start` (runs system OCR for active artifact, selected OCR region, or focused image pin, copies recognized text to clipboard, and shows a selectable result window)
 - `artifact.dismiss`
 
 Pin context actions:
@@ -28,6 +28,7 @@ Pin context actions:
 - `pin.save_focused`
 - `pin.close_focused`
 - `pin.close_all`
+- `ocr.start` for focused image pins, exposed through the image pin context menu
 
 Pin focused interactions:
 
@@ -37,8 +38,20 @@ Pin focused interactions:
 Mark session shortcuts:
 
 - `Ctrl+C`, `Ctrl+S`, `Ctrl+Z`, `Ctrl+Y`, `Delete`, `Esc`, `R`
-- Tool switching: `Shift+1`, `Shift+2`, `Shift+3`, `Shift+5`, `Shift+8`, `V`
+- Tool switching: `Shift+1`, `Shift+2`, `Shift+3`, `Shift+4`, `Shift+5`, `Shift+6`, `Shift+7`, `Shift+8`, `Shift+9`, `Shift+0`, `V`
 - Stroke adjustments: `[` / `]` and mouse wheel
+- Serial adjustments: `+` / `-` adjust the selected serial number, or the next serial value when no serial annotation is selected.
+
+OCR interaction baseline:
+
+- `ocr.start` declares optional action parameters `source`, `x`, `y`, `w`, and `h` in the action registry.
+- Toolbar `OCR` enters region selection when an overlay artifact is active.
+- Region selection dispatches `ocr.start` with `x`, `y`, `w`, and `h` parameters.
+- Direct `ocr.start` without region parameters runs OCR over the whole active artifact.
+- When an image pin is focused and no active artifact exists, `ocr.start` runs OCR over the focused image pin.
+- Image pin context-menu `OCR` dispatches `ocr.start` with `source=focused_pin` so it does not accidentally use an active artifact source.
+- Successful OCR emits recognized text through an `ocr.text` action progress event; `AppMain` shows it in a selectable read-only result window after clipboard copy succeeds.
+- reference-style pinned-image OCR text overlays, OCR result editing/management UI, formula recognition shortcut, QR/barcode recognition, and table recognition are not implemented.
 
 Error handling rule:
 

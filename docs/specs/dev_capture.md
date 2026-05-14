@@ -4,8 +4,9 @@
 
 - Provide a fast static capture flow triggered by `Ctrl+1` and tray entry points.
 - Keep selection visuals stable under DPI scaling.
-- Support artifact actions `Copy`, `Save`, `Pin`, `Mark`, and `Close`.
-- Keep OCR and scrolling capture explicitly outside the current implemented baseline.
+- Support artifact actions `Copy`, `Save`, `Pin`, `Mark`, `OCR`, and `Close`.
+- Keep scrolling capture explicitly outside the current implemented baseline.
+- Treat OCR as a basic artifact action with a selectable result window, not yet as reference-level pinned-image OCR overlay recognition.
 
 ## Math / Logic / Interfaces
 
@@ -24,13 +25,14 @@ Core capture interfaces and action IDs:
 - `export.save_image`
 - `pin.create_from_artifact`
 - `annotate.open`
-- `ocr.start` (deferred, currently returns explicit not-implemented error)
+- `ocr.start` (runs Windows system OCR over the active artifact bitmap, an OCR region, or a focused image pin, copies recognized text to clipboard, shows a selectable result window, and reports success/failure through a tray notification)
 - `artifact.dismiss`
 
 ## Code Mapping
 
 - Capture entry and runtime orchestration: `src/app/AppMain.cpp`
 - Action routing and context checks: `src/app/ActionDispatcher.cpp`
+- OCR region-to-bitmap crop mapping: `src/app/OcrRegion.h`
 - Overlay selection UI: `src/ui/OverlayWindow.cpp`
 - Artifact toolbar UI: `src/ui/ToolbarWindow.cpp`
 - Capture backend contracts: `src/capture/CaptureService.h`
@@ -40,7 +42,8 @@ Core capture interfaces and action IDs:
 
 ## Tradeoffs
 
-- OCR and scrolling capture remain deferred to preserve baseline stability in the free/open-source core.
+- Scrolling capture remains deferred to preserve baseline stability in the free/open-source core.
+- OCR currently uses the Windows system OCR engine directly from `ActionDispatcher.cpp`; reusable region mapping lives in `src/app/OcrRegion.h`, result text is shown by `src/ui/OcrResultWindow.*`, and a dedicated `src/ocr/` module remains future work if language/runtime configuration or richer recognition backends are added.
 - `annotate.open` includes a recapture fallback path when bitmap backing is missing, prioritizing recoverability over strict purity of initial artifact path.
 
 ## Verification
@@ -52,5 +55,6 @@ Required verification for capture-related changes:
 - Manual smoke path:
   - Start capture with `Ctrl+1`.
   - Select area and validate mask/preview alignment.
-  - Trigger `Copy`, `Save`, `Pin`, and `Close` from toolbar.
+  - Trigger `Copy`, `Save`, `Pin`, `OCR`, and `Close` from toolbar.
+  - For OCR, validate whole-artifact OCR and selected-region OCR, then confirm recognized text reaches the clipboard, appears in the selectable result window, and a tray notification reports success or an explicit OCR error.
   - Confirm `Esc` cancels overlay without stale session state.

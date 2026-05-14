@@ -1,6 +1,8 @@
 ﻿#include "ActionDispatcher.h"
 
 #include "CaptureFreeze.h"
+#include "OcrRegion.h"
+#include "OcrResultEvent.h"
 #include "ConfigService.h"
 #include "ErrorCodes.h"
 #include "OverlayWindow.h"
@@ -482,7 +484,8 @@ void ActionDispatcher::EmitEvent(const ActionEvent& ev) {
   }
 }
 
-Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
+Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req,
+                                             Id64 correlation_id) {
   if (req.id == "app.exit") {
     if (hwnd_) {
       PostMessageW(hwnd_, WM_CLOSE, 0, 0);
@@ -904,7 +907,7 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     return Result<void>::Ok();
   }
   if (req.id == "ocr.start") {
-    if (!artifacts_ || !exporter_ || !state_) {
+    if (!exporter_ || !state_) {
       Error err;
       err.code = ERR_INTERNAL_ERROR;
       err.message = "OCR unavailable";
@@ -912,27 +915,57 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
       err.detail = "ocr_service_null";
       return Result<void>::Fail(err);
     }
-    if (!state_->active_artifact_id.has_value()) {
+
+    const std::optional<std::string> source_param = FindParam(req, "source");
+    const bool force_focused_pin =
+        source_param.has_value() && *source_param == "focused_pin";
+    std::optional<Artifact> art;
+    const bool source_is_active_artifact =
+        !force_focused_pin && state_->active_artifact_id.has_value();
+    if (source_is_active_artifact) {
+      if (!artifacts_) {
+        Error err;
+        err.code = ERR_INTERNAL_ERROR;
+        err.message = "OCR unavailable";
+        err.retryable = true;
+        err.detail = "artifact_store_null";
+        return Result<void>::Fail(err);
+      }
+      art = artifacts_->Get(*state_->active_artifact_id);
+      if (!art.has_value()) {
+        Error err;
+        err.code = ERR_TARGET_INVALID;
+        err.message = "Artifact missing";
+        err.retryable = false;
+        err.detail = "artifact_missing";
+        return Result<void>::Fail(err);
+      }
+    } else if (state_->focused_pin_id.has_value()) {
+      if (!pin_manager_) {
+        Error err;
+        err.code = ERR_INTERNAL_ERROR;
+        err.message = "Pin unavailable";
+        err.retryable = true;
+        err.detail = "pin_service_null";
+        return Result<void>::Fail(err);
+      }
+      Result<Artifact> pin_artifact = pin_manager_->BuildFocusedArtifact();
+      if (!pin_artifact.ok) {
+        return Result<void>::Fail(pin_artifact.error);
+      }
+      art = std::move(pin_artifact.value);
+    } else {
       Error err;
       err.code = ERR_TARGET_INVALID;
-      err.message = "No active artifact";
+      err.message = "No active artifact or focused pin";
       err.retryable = false;
-      err.detail = "no_active_artifact";
+      err.detail = "no_ocr_source";
       return Result<void>::Fail(err);
     }
 
-    std::optional<Artifact> art = artifacts_->Get(*state_->active_artifact_id);
-    if (!art.has_value()) {
-      Error err;
-      err.code = ERR_TARGET_INVALID;
-      err.message = "Artifact missing";
-      err.retryable = false;
-      err.detail = "artifact_missing";
-      return Result<void>::Fail(err);
-    }
-
-    if (!art->base_cpu.has_value() || !art->base_cpu_storage ||
-        art->base_cpu_storage->empty()) {
+    if (source_is_active_artifact &&
+        (!art->base_cpu.has_value() || !art->base_cpu_storage ||
+         art->base_cpu_storage->empty())) {
       std::shared_ptr<std::vector<uint8_t>> storage;
       std::optional<CpuBitmap> recaptured =
           CaptureRectToCpu(art->screen_rect_px, &storage);
@@ -983,28 +1016,9 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
         return Result<void>::Fail(err);
       }
 
-      RectPX art_rect = art->screen_rect_px;
-      if (art_rect.w <= 0 || art_rect.h <= 0) {
-        art_rect.x = 0;
-        art_rect.y = 0;
-        art_rect.w = art->base_cpu->size_px.w;
-        art_rect.h = art->base_cpu->size_px.h;
-      }
-
-      const int32_t rel_left = sx - art_rect.x;
-      const int32_t rel_top = sy - art_rect.y;
-      const int32_t rel_right = rel_left + sw;
-      const int32_t rel_bottom = rel_top + sh;
-
-      const int32_t crop_left = std::max<int32_t>(0, rel_left);
-      const int32_t crop_top = std::max<int32_t>(0, rel_top);
-      const int32_t crop_right =
-          std::min<int32_t>(art->base_cpu->size_px.w, rel_right);
-      const int32_t crop_bottom =
-          std::min<int32_t>(art->base_cpu->size_px.h, rel_bottom);
-      const int32_t crop_w = crop_right - crop_left;
-      const int32_t crop_h = crop_bottom - crop_top;
-      if (crop_w <= 0 || crop_h <= 0) {
+      std::optional<RectPX> crop_rect = ResolveOcrCropRect(
+          art->screen_rect_px, art->base_cpu->size_px, {sx, sy, sw, sh});
+      if (!crop_rect.has_value()) {
         Error err;
         err.code = ERR_TARGET_INVALID;
         err.message = "OCR region outside artifact";
@@ -1014,21 +1028,21 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
       }
 
       const int32_t src_stride = art->base_cpu->stride_bytes;
-      const int32_t dst_stride = crop_w * 4;
+      const int32_t dst_stride = crop_rect->w * 4;
       cropped_pixels.resize(static_cast<size_t>(dst_stride) *
-                           static_cast<size_t>(crop_h));
+                           static_cast<size_t>(crop_rect->h));
       const uint8_t* src = art->base_cpu_storage->data();
-      for (int32_t row = 0; row < crop_h; ++row) {
+      for (int32_t row = 0; row < crop_rect->h; ++row) {
         const uint8_t* src_row =
-            src + static_cast<size_t>(crop_top + row) * src_stride +
-            static_cast<size_t>(crop_left) * 4;
+            src + static_cast<size_t>(crop_rect->y + row) * src_stride +
+            static_cast<size_t>(crop_rect->x) * 4;
         uint8_t* dst_row =
             cropped_pixels.data() + static_cast<size_t>(row) * dst_stride;
         std::memcpy(dst_row, src_row, static_cast<size_t>(dst_stride));
       }
 
       cropped_bmp = *art->base_cpu;
-      cropped_bmp.size_px = SizePX{crop_w, crop_h};
+      cropped_bmp.size_px = SizePX{crop_rect->w, crop_rect->h};
       cropped_bmp.stride_bytes = dst_stride;
       cropped_bmp.data.p = cropped_pixels.data();
       ocr_bmp = &cropped_bmp;
@@ -1039,6 +1053,8 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
     if (!ocr.ok) {
       return Result<void>::Fail(ocr.error);
     }
+
+    EmitEvent(MakeOcrTextProgressEvent(correlation_id, ocr.value));
 
     Result<void> copied = exporter_->CopyTextToClipboard(ocr.value);
     if (!copied.ok) {
@@ -1094,4 +1110,3 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req, Id64) {
 }
 
 } // namespace snappin
-

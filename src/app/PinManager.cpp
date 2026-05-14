@@ -685,6 +685,24 @@ void PinManager::SetFocusedPin(const std::optional<Id64>& pin_id) {
   }
 }
 
+Result<Artifact> PinManager::BuildFocusedArtifact() {
+  if (!focused_pin_id_.has_value()) {
+    Error err;
+    err.code = ERR_TARGET_INVALID;
+    err.message = "No focused pin";
+    err.retryable = false;
+    err.detail = "no_focused_pin";
+    return Result<Artifact>::Fail(err);
+  }
+
+  Artifact art;
+  Result<void> built = BuildArtifactFromPin(*focused_pin_id_, &art);
+  if (!built.ok) {
+    return Result<Artifact>::Fail(built.error);
+  }
+  return Result<Artifact>::Ok(std::move(art));
+}
+
 Result<void> PinManager::BuildArtifactFromPin(Id64 pin_id, Artifact* out_artifact) {
   if (!out_artifact) {
     Error err;
@@ -896,4 +914,3 @@ Result<void> PinManager::DestroyAll() {
 }
 
 } // namespace snappin
-

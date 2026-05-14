@@ -15,19 +15,17 @@ Normalized docs entry points:
 
 ## Reference docs used for parity
 
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
-- `reference app reference
+Reference labels only; direct reference URLs are intentionally kept out of
+tracked documentation.
+
+- reference app quick start.
+- reference app stable release notes audited on 2026-05-14.
+- reference app beta release notes audited on 2026-05-14.
+- reference app capture docs: static capture, long capture, recording/GIF capture.
+- reference app pin docs: base use, image, text, file, color, LaTeX, pin group.
+- reference app mark docs: base use, geometry, line, arrow, serial, pencil,
+  mark pencil, mosaic, text, erase, highlight, watermark, magnifier.
+- reference app formula recognition docs.
 
 ## Completed (user-verified)
 
@@ -52,26 +50,49 @@ Normalized docs entry points:
   - `Range` button and `R` shortcut re-enter selection in the same capture session.
   - First `Esc` exits current mark selection/edit state; next `Esc` exits capture session.
 - Mark tools baseline:
-  - `Select`, `Rect`, `Line`, `Arrow`, `Pencil`, `Text`.
+  - `Select`, `Rect`, `Ellipse`, `Line`, `Polyline`, `Arrow`, `Serial`, `Mosaic`, `Blur`, `Eraser`, `Highlighter`, `Spotlight`, `Watermark`, `Magnifier`, `Pencil`, `Text`.
+  - Serial values auto-increment, accept direct numeric entry for the selected or next serial value, and can be adjusted with `+` / `-`.
   - Undo/redo stack and delete selected editable annotation.
   - Shift-lock for line/arrow angle snapping.
 - Mark edit baseline:
-  - Rect move/resize, line/arrow move and endpoint drag, text move.
+  - Rect move/resize, line/arrow move and endpoint drag, basic polyline node drag / whole-polyline move, text move.
   - Text entry with inline typing and commit on `Enter`.
 - Annotated output pipeline:
   - `Ctrl+C` and `Ctrl+S` export composed image through existing export service.
+  - `snappin_tests` covers Rect, Ellipse, Line, Polyline, Arrow, Serial, Mosaic, Blur, Highlighter, Spotlight, Watermark, Magnifier, Pencil, and Text creation paths through `Copy` and verifies composed image pixels differ from the source bitmap.
+  - `snappin_tests` covers basic Polyline node editing by verifying a selected node drag changes composed output pixels.
+  - `snappin_tests` covers Eraser deletion of an editable annotation and verifies copied pixels return to the source bitmap.
+  - `snappin_tests` covers basic Eraser path-segment removal on Polyline by verifying remaining segments still change copied pixels.
 - Pin advanced content baseline:
   - Clipboard text pin is supported.
   - Clipboard LaTeX-like text is recognized and pinned in LaTeX mode.
   - Text/LaTeX pins support copy/save flows (`Copy Text`, `.txt` / `.tex` save).
 - OCR baseline:
-  - `ocr.start` runs system OCR against active artifact bitmap and copies result text to clipboard.
+  - `ocr.start` runs Windows system OCR against the active artifact bitmap, selected OCR region, or focused image pin, then copies result text to clipboard and shows a selectable OCR result window.
+  - `ocr.start` declares optional `source`, `x`, `y`, `w`, and `h` action parameters so focused-pin and selected-region OCR are visible in the action contract.
+  - OCR success emits a text progress event that carries the recognized text as UTF-8 for the result window.
+  - Image pin context menu exposes OCR; text and LaTeX pins are not treated as OCR image sources.
+  - Selected OCR region crop mapping is covered by focused tests for in-bounds, clipped, outside, and fallback-coordinate cases.
+  - OCR success/failure emits a tray notification through the app action-event path.
+
+## Partially implemented / not reference parity
+
+- Mark parity:
+  - Current tools are limited to `Select`, `Rect`, `Ellipse`, `Line`, basic multi-click/editable `Polyline`, `Arrow`, `Serial`, basic rectangular `Mosaic` with wheel strength, basic rectangular `Blur` with wheel strength, basic whole-object/path-segment `Eraser`, basic freehand `Highlighter`, basic rectangular `Spotlight`, basic rectangular `Watermark`, basic rectangular `Magnifier`, `Pencil`, and `Text`.
+  - Automated pixel verification currently covers baseline drawing-tool composed-copy smoke paths and Eraser deletion, not advanced/deferred reference app mark tools or manual UI workflow.
+  - Missing reference-level mark behavior includes smart erase; Polyline supports only basic node drag / whole move, and Mosaic, Blur, Watermark, and Magnifier exist only as basic implementations without advanced editing/configuration parity.
+  - reference-style highlighter modes and configuration are not implemented.
+  - reference-style spotlight modes and configuration are not implemented.
+  - Full reference-style partial erasing and mosaic reverse-erase behavior are not implemented.
+  - Missing current reference app release/beta additions include Auto Mosaic, synced mosaic operations, advanced serial formats/settings, text arrows, text background color configuration, and reference-style centered/configurable watermark workflow.
+- OCR parity:
+  - Current OCR copies one recognized text result to clipboard and displays it in a selectable result window.
+  - Focused image pin OCR now exists as a baseline source path, but reference-level selectable recognized text overlays on pinned images are still missing.
+  - Missing reference-level OCR includes automatic/manual pin OCR overlay UX, formula recognition, QR/barcode recognition, table recognition, language/model configuration, and advanced result management.
+- Pin parity:
+  - Missing file pin, color pin, pin groups, mouse passthrough, multi-select align, z-order persistence, and taskbar/topmost configuration.
 
 ## Not implemented yet
 
 - Long capture (`capture/long-capture` parity).
-- Mark advanced tools:
-  - Mosaic.
-  - Erase/eraser semantics.
-  - Polyline/multi-segment line behavior parity.
 - Recording and timeline capture modes.

@@ -5,14 +5,27 @@ namespace {
 
 ActionDescriptor MakeAction(const char* id, const char* title, const char* desc,
                             std::vector<ActionContext> contexts,
-                            ThreadPolicy policy) {
+                            ThreadPolicy policy,
+                            std::vector<ActionParamDef> params = {}) {
   ActionDescriptor d;
   d.id = id;
   d.title = title;
   d.description = desc;
   d.contexts = std::move(contexts);
   d.thread_policy = policy;
+  d.params = std::move(params);
   return d;
+}
+
+ActionParamDef MakeParam(const char* name, const char* type,
+                         const char* default_value = "",
+                         bool required = false) {
+  ActionParamDef param;
+  param.name = name;
+  param.type = type;
+  param.default_value = default_value;
+  param.required = required;
+  return param;
 }
 
 } // namespace
@@ -58,9 +71,15 @@ ActionRegistry::ActionRegistry() {
                                 {ActionContext::ARTIFACT_ACTIVE},
                                 ThreadPolicy::UI_ONLY));
   actions_.push_back(MakeAction("ocr.start", "OCR",
-                                "Run OCR for active artifact",
-                                {ActionContext::ARTIFACT_ACTIVE},
-                                ThreadPolicy::BACKGROUND_OK));
+                                "Run OCR for active artifact or focused image pin",
+                                {ActionContext::ARTIFACT_ACTIVE,
+                                 ActionContext::PIN_FOCUSED},
+                                ThreadPolicy::BACKGROUND_OK,
+                                {MakeParam("source", "string", "auto"),
+                                 MakeParam("x", "int32"),
+                                 MakeParam("y", "int32"),
+                                 MakeParam("w", "int32"),
+                                 MakeParam("h", "int32")}));
   actions_.push_back(MakeAction("artifact.dismiss", "Close Toolbar",
                                 "Dismiss active artifact",
                                 {ActionContext::ARTIFACT_ACTIVE},

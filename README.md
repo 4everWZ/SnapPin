@@ -7,12 +7,13 @@ SnapPin is a free and open-source Windows screenshot, annotation, and pin utilit
 - Static capture with frozen-frame visual pause
 - Dimmed mask with selection highlight
 - Auto window hover selection and drag region selection
-- Post-capture toolbar actions: `Copy`, `Save`, `Pin`, `Mark`, `OCR (placeholder)`, `Close`
-- Annotation editor baseline: `Rect`, `Line`, `Arrow`, `Pencil`, `Text`, `Undo/Redo`, range reselect
-- Multi-pin image windows with close/destroy lifecycle actions
+- Post-capture toolbar actions: `Copy`, `Save`, `Pin`, `Mark`, `OCR`, `Close`
+- Annotation editor baseline: `Rect`, `Ellipse`, `Line`, `Polyline`, `Arrow`, `Serial`, `Mosaic`, `Blur`, `Eraser`, `Highlighter`, `Spotlight`, `Watermark`, `Magnifier`, `Pencil`, `Text`, `Undo/Redo`, range reselect
+- OCR baseline for active artifacts, selected OCR regions, and focused image pins using the Windows system OCR engine, with clipboard copy, selectable result window, and tray feedback
+- Multi-pin image windows with close/destroy lifecycle actions and clipboard text/LaTeX-like pin fallback
 - Tray-resident single-instance app
 
-Detailed progress and parity tracking: `docs/Implementation-Status.md`.
+Detailed progress and reference parity tracking: `docs/Implementation-Status.md`.
 
 ## Build
 

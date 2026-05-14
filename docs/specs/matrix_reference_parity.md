@@ -1,25 +1,38 @@
 # reference app Parity and Boundary Matrix
 
+Last audited: 2026-05-14
+
+Reference baseline:
+
+- Current reference app stable reference: `v3.1.4.0` release notes dated 2026-04-23.
+- Current reference app beta reference found during audit: `v3.2.1.3` release notes dated 2026-05-13.
+- Formal SnapPin release parity target is not yet accepted; beta-only reference app behavior is tracked as a watchlist until the target is decided.
+
 Status values:
 
-- `Implemented`
-- `Implemented (pending user verification)`
-- `Deferred`
+- `Implemented`: Code exists and repository verification covers the claimed behavior.
+- `Implemented (pending user verification)`: Code exists, but manual UX confirmation is still required.
+- `Partially implemented`: A baseline exists, but reference parity is materially incomplete.
+- `Deferred`: Intentionally out of the current implementation slice.
 - `Not implemented in the current version.`
 
 | Area | Reference Baseline | SnapPin Status | Boundary Decision | Next Step |
 | --- | --- | --- | --- | --- |
-| Static capture (`Ctrl+1`, tray) | capture/static-capture | Implemented | Baseline committed | Keep DPI/selection stability checks in smoke tests |
-| Artifact actions (`Copy/Save/Pin/Mark/Close`) | capture/static-capture | Implemented | Baseline committed | Continue regression validation after mark changes |
-| Mark baseline tools (`Rect/Line/Arrow/Pencil/Text`) | mark/base-use + tool pages | Implemented (pending user verification) | Keep current toolset as baseline | Complete targeted manual verification loop |
-| Mark advanced tools (`Mosaic/Erase/Polyline parity`) | mark/mosaic, mark/erase, mark/line | Deferred | Deferred to avoid destabilizing baseline mark loop | Phase 2 implementation |
-| Pin image workflow and focused actions | pin/base-use, pin/image | Implemented | Baseline committed | Maintain focused action/context checks |
-| Pin text mode | pin/text | Implemented (pending user verification) | Implemented as clipboard text pin with dedicated text rendering | Validate editing/selection parity against reference app details |
-| Pin LaTeX mode | pin/latex | Implemented (pending user verification) | Implemented as LaTeX-like text pin mode with `.tex` save path | Validate formula rendering parity depth |
-| OCR trigger and result flow | capture/static-capture, quick-start text recognition | Implemented (pending user verification) | Uses system OCR engine on active artifact bitmap and copies recognized text | Validate language/runtime coverage and failure messaging |
-| Scrolling capture | capture/long-capture | Not implemented in the current version. | Explicitly deferred | Phase 4 implementation |
-| Recording/GIF capture | quick-start GIF capture | Not implemented in the current version. | Deferred for baseline-first sequencing | Post Phase 4 |
-| Paid-only reference app VIP features | long-capture auto-crop VIP, advanced paid modules | Not implemented in the current version. | Keep SnapPin free/open-source; no paid gating introduced | Provide open alternatives if/when implemented |
+| Static capture (`Ctrl+1`, tray) | `capture/static-capture`, quick start | Implemented | Baseline committed | Keep DPI/selection stability checks in smoke tests |
+| Artifact actions (`Copy/Save/Pin/Mark/OCR/Close`) | `capture/static-capture`, quick start | Partially implemented | Copy/save/pin/mark/close are baseline; OCR is basic artifact OCR only | Smoke-test toolbar order and OCR region flow |
+| Mark capture baseline (`Rect/Ellipse/Line/Polyline/Arrow/Serial/Mosaic/Blur/Eraser/Highlighter/Spotlight/Watermark/Magnifier/Pencil/Text`) | `mark/base-use`, `mark/geo`, `mark/line`, `mark/arrow`, `mark/serial`, `mark/mosaic`, `mark/erase`, `mark/highlight`, `mark/watermark`, `mark/magnifier`, `mark/pencil`, `mark/text` | Partially implemented | SnapPin has a usable baseline, not reference parity; polyline supports basic multi-click creation plus node drag / whole move only, serial is auto-increment with direct numeric entry and `+`/`-` adjustment only, mosaic and blur are basic rectangular effects with wheel strength only, eraser supports whole-object deletion and basic path-segment removal only, highlighter is basic freehand only, spotlight is basic rectangular only, watermark is basic manually placed text only, and magnifier is basic rectangular 2x zoom only | Complete user verification loop, then implement missing mark tools in small slices |
+| Mark shape parity | `mark/geo`, `mark/line` | Partially implemented | Rectangle, ellipse, straight line, basic editable polyline, and arrow exist; advanced polyline add/remove node controls and richer editing parity are missing | Add tests/design for annotation model extension before advanced editing changes |
+| Mark advanced tools | `mark/mark-pencil`, `mark/mosaic`, `mark/erase`, `mark/highlight`, `mark/watermark`, `mark/magnifier` | Partially implemented | Basic mosaic/blur with wheel strength, whole-object/path-segment eraser, freehand highlighter, rectangular spotlight, manually placed text watermark, and rectangular 2x magnifier exist; missing smart erase, full partial/reverse erasing, Auto Mosaic, synced mosaic operations, advanced blur/highlighter/spotlight modes, configurable/centered watermark workflow, and advanced magnifier controls | Phase 3 mark expansion |
+| reference app 3.1/3.2 mark additions | `official-log/3-1-4-0`, `change-log/3-2-1-3` | Partially implemented | Direct serial number entry has a baseline; Auto Mosaic, synced mosaic operations, advanced serial formats/settings, text arrows, text background color config, and reference-style centered/configurable watermark workflow are missing | Track after baseline mark model supports advanced tools |
+| Pin image workflow and focused actions | `pin/base-use`, `pin/image` | Implemented (pending user verification) | Baseline image pin and focused actions are present | Maintain focused action/context checks |
+| Pin text mode | `pin/text` | Implemented (pending user verification) | Implemented as clipboard text pin with dedicated text rendering | Validate editing/selection parity against reference app details |
+| Pin LaTeX mode | `pin/latex`, `other/formula` | Partially implemented | Clipboard LaTeX-like text pin exists; reference-style formula recognition is missing | Decide whether formula recognition is mandatory for release parity |
+| Pin advanced parity | `pin/file`, `pin/color`, `pin/pin-group`, release notes | Not implemented in the current version. | Missing file/color pins, pin groups, mouse passthrough, multi-select align, z-order persistence, taskbar/topmost config | Phase 5 pin expansion |
+| OCR trigger and copy flow | quick start text recognition, `configuration/system`, `other/formula`, release notes | Partially implemented | Uses Windows system OCR over active artifact, selected region, or focused image pin, copies text, emits tray feedback, and shows a selectable result window; does not expose selectable recognized text overlays on pinned images | Manually verify runtime OCR result window and clipboard contents |
+| OCR advanced recognition | quick start text recognition, `other/formula`, release notes | Not implemented in the current version. | Missing pinned-image selectable OCR overlays, automatic pin OCR, formula recognition, QR/barcode recognition, table recognition, language/model config, and advanced result management UI | Phase 4 OCR expansion |
+| Scrolling capture | `capture/long-capture`, beta overflow mode | Not implemented in the current version. | Explicitly deferred | Phase 6 implementation |
+| Recording/GIF capture | `capture/gif-capture2`, release notes | Not implemented in the current version. | Deferred for baseline-first sequencing | Phase 6/post-release candidate |
+| Paid/Pro reference app features | member/pro release notes | Not implemented in the current version. | Keep SnapPin free/open-source; no paid gating introduced | Provide open alternatives if implemented |
 
 ## Boundary Rules for Current Task Cycle
 

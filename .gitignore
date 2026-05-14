@@ -1,3 +1,6 @@
 .vscode
 build
 docs/HANDOFF.md
+docs/reference-local/
+docs/**/reference-urls*.md
+docs/**/reference_urls*.md

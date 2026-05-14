@@ -37,6 +37,25 @@ bool TrayIcon::Init(HWND hwnd, UINT callback_message, UINT icon_id) {
 
 void TrayIcon::Cleanup() { RemoveIcon(); }
 
+bool TrayIcon::ShowNotification(const wchar_t* title, const wchar_t* message,
+                                bool is_error) {
+  if (!visible_ || !hwnd_) {
+    return false;
+  }
+
+  nid_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_INFO;
+  lstrcpynW(nid_.szInfoTitle, title ? title : L"SnapPin",
+            ARRAYSIZE(nid_.szInfoTitle));
+  lstrcpynW(nid_.szInfo, message ? message : L"", ARRAYSIZE(nid_.szInfo));
+  nid_.dwInfoFlags = is_error ? NIIF_ERROR : NIIF_INFO;
+
+  if (!Shell_NotifyIconW(NIM_MODIFY, &nid_)) {
+    LogLastError("tray notification failed", GetLastError());
+    return false;
+  }
+  return true;
+}
+
 void TrayIcon::OnTaskbarCreated() {
   if (hwnd_) {
     AddIcon();
