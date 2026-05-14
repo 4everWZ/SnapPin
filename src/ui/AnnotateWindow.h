@@ -123,6 +123,7 @@ private:
   void SetTool(Tool tool);
   void Invalidate();
   bool ApplySerialEntryChar(wchar_t ch);
+  bool ApplyWatermarkEntryChar(wchar_t ch);
 
   RECT CanvasRectClient() const;
   bool ToCanvasPoint(POINT client_pt, POINT* out_canvas) const;
@@ -180,6 +181,7 @@ private:
   int next_serial_value_ = 1;
   std::wstring serial_entry_text_;
   int serial_entry_target_index_ = -2;
+  std::wstring next_watermark_text_;
 
   DragMode drag_mode_ = DragMode::None;
   bool dragging_ = false;

@@ -880,6 +880,88 @@ bool AnnotateWindowEffectWheelChangesCopiedPixels(const wchar_t* tool_label) {
   return default_pixels && strong_pixels && *default_pixels != *strong_pixels;
 }
 
+std::shared_ptr<std::vector<uint8_t>>
+AnnotateWindowCopiesWatermarkPixelsAfterChars(const wchar_t* chars) {
+  snappin::AnnotateWindow annotate;
+  if (!annotate.Create(GetModuleHandleW(nullptr))) {
+    return {};
+  }
+
+  constexpr int width = 48;
+  constexpr int height = 32;
+  constexpr int stride = width * 4;
+  auto source = MakeAnnotateTestSource(width, height, stride);
+
+  bool callback_seen = false;
+  snappin::AnnotateWindow::Command seen_command =
+      snappin::AnnotateWindow::Command::Close;
+  std::shared_ptr<std::vector<uint8_t>> copied_pixels;
+  snappin::SizePX copied_size = {};
+  int32_t copied_stride = 0;
+  annotate.SetCommandCallback(
+      [&](snappin::AnnotateWindow::Command command,
+          std::shared_ptr<std::vector<uint8_t>> pixels,
+          const snappin::SizePX& size_px, int32_t stride_bytes) {
+        callback_seen = true;
+        seen_command = command;
+        copied_pixels = std::move(pixels);
+        copied_size = size_px;
+        copied_stride = stride_bytes;
+      });
+
+  if (!annotate.BeginSession({100, 100, width, height}, source,
+                             {width, height}, stride)) {
+    annotate.Destroy();
+    return {};
+  }
+
+  HWND hwnd = FindWindowW(L"SnapPinAnnotateWindow", L"SnapPin Mark");
+  if (!hwnd) {
+    annotate.Destroy();
+    return {};
+  }
+
+  HWND watermark_button = FindAnnotateButton(hwnd, L"Watermark");
+  HWND copy_button = FindAnnotateButton(hwnd, L"Copy");
+  if (!watermark_button || !copy_button) {
+    annotate.Destroy();
+    return {};
+  }
+  SendMessageW(watermark_button, BM_CLICK, 0, 0);
+
+  for (const wchar_t* ch = chars; ch && *ch; ++ch) {
+    SendMessageW(hwnd, WM_CHAR, static_cast<WPARAM>(*ch), 0);
+  }
+
+  constexpr int toolbar_height = 34;
+  SendMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON,
+               MAKELPARAM(4, toolbar_height + 6));
+  SendMessageW(hwnd, WM_MOUSEMOVE, MK_LBUTTON,
+               MAKELPARAM(44, toolbar_height + 26));
+  SendMessageW(hwnd, WM_LBUTTONUP, 0, MAKELPARAM(44, toolbar_height + 26));
+  SendMessageW(copy_button, BM_CLICK, 0, 0);
+  annotate.Destroy();
+
+  if (!callback_seen ||
+      seen_command != snappin::AnnotateWindow::Command::Copy ||
+      !copied_pixels) {
+    return {};
+  }
+  if (copied_size.w != width || copied_size.h != height ||
+      copied_stride != stride ||
+      copied_pixels->size() != source->size()) {
+    return {};
+  }
+  return copied_pixels;
+}
+
+bool AnnotateWindowWatermarkDirectTextChangesCopiedPixels() {
+  auto default_pixels = AnnotateWindowCopiesWatermarkPixelsAfterChars(L"");
+  auto custom_pixels = AnnotateWindowCopiesWatermarkPixelsAfterChars(L"CODEX");
+  return default_pixels && custom_pixels &&
+         *default_pixels != *custom_pixels;
+}
+
 bool OcrResultWindowShowsSelectableText() {
   snappin::OcrResultWindow window;
   if (!window.Create(GetModuleHandleW(nullptr))) {
@@ -1110,6 +1192,10 @@ int main() {
   if (!AnnotateWindowCopiesComposedToolPixels(L"Watermark",
                                              AnnotateCreateGesture::Drag)) {
     return 64;
+  }
+
+  if (!AnnotateWindowWatermarkDirectTextChangesCopiedPixels()) {
+    return 75;
   }
 
   if (!AnnotateWindowCopiesComposedToolPixels(L"Magnifier",

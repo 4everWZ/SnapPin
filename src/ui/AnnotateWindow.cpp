@@ -288,6 +288,7 @@ bool AnnotateWindow::BeginSession(const RectPX& screen_rect,
   next_serial_value_ = 1;
   serial_entry_text_.clear();
   serial_entry_target_index_ = -2;
+  next_watermark_text_.clear();
 
   const int min_toolbar_width = AnnotateToolbarMinWidth(
       kLeftToolbarButtonCount, kRightToolbarButtonCount, kButtonWidth,
@@ -685,6 +686,9 @@ LRESULT AnnotateWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       if (ApplySerialEntryChar(static_cast<wchar_t>(wparam))) {
         return 0;
       }
+      if (ApplyWatermarkEntryChar(static_cast<wchar_t>(wparam))) {
+        return 0;
+      }
       if (!text_editing_ || text_edit_index_ < 0 ||
           text_edit_index_ >= static_cast<int>(annotations_.size())) {
         break;
@@ -1020,6 +1024,46 @@ bool AnnotateWindow::ApplySerialEntryChar(wchar_t ch) {
   return true;
 }
 
+bool AnnotateWindow::ApplyWatermarkEntryChar(wchar_t ch) {
+  if (tool_ != Tool::Watermark) {
+    return false;
+  }
+
+  const bool is_backspace = ch == L'\b';
+  const bool is_commit = ch == L'\r' || ch == L'\n';
+  const bool is_printable = ch >= 32;
+  if (!is_backspace && !is_commit && !is_printable) {
+    return false;
+  }
+  if (is_commit) {
+    return true;
+  }
+
+  std::wstring* target = &next_watermark_text_;
+  bool updates_annotation = false;
+  if (selected_index_ >= 0 &&
+      selected_index_ < static_cast<int>(annotations_.size()) &&
+      annotations_[static_cast<size_t>(selected_index_)].type ==
+          AnnotationType::Watermark) {
+    target = &annotations_[static_cast<size_t>(selected_index_)].text;
+    updates_annotation = true;
+  }
+
+  const std::wstring before = *target;
+  if (is_backspace) {
+    if (!target->empty()) {
+      target->pop_back();
+    }
+  } else if (target->size() < 64) {
+    target->push_back(ch);
+  }
+  if (*target != before && updates_annotation) {
+    PushHistory();
+  }
+  Invalidate();
+  return true;
+}
+
 RECT AnnotateWindow::CanvasRectClient() const {
   RECT rc = {};
   rc.left = 0;
@@ -1243,7 +1287,7 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
       drag_mode_ = DragMode::CreateWatermark;
       drag_seed_.type = AnnotationType::Watermark;
       drag_seed_.color = RGB(255, 255, 255);
-      drag_seed_.text = L"SnapPin";
+      drag_seed_.text = next_watermark_text_;
       break;
     case Tool::Magnifier:
       drag_mode_ = DragMode::CreateMagnifier;

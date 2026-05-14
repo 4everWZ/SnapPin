@@ -35,7 +35,7 @@ Known reference parity gaps:
 - Eraser: basic whole-object annotation deletion and path-segment erasing for path tools are implemented; full reference-style partial erasing and mosaic reverse-erase behavior are not implemented.
 - Highlighter: basic freehand translucent highlighter is implemented; reference-style highlighter modes and configuration are not implemented.
 - Spotlight: basic rectangular spotlight is implemented; reference-style spotlight modes and configuration are not implemented.
-- Watermark: a basic manually placed rectangular text watermark is implemented; reference-style configurable/centered watermark workflow is not implemented.
+- Watermark: a basic manually placed rectangular text watermark with direct keyboard text entry is implemented; reference-style presets, batch/centered workflow, and richer configuration are not implemented.
 - Magnifier: a basic rectangular 2x magnifier is implemented; reference-style magnifier modes and configuration are not implemented.
 - Pin-side annotation entry is not implemented; SnapPin annotation is currently capture-artifact scoped.
 - Advanced text features from current reference app beta notes, including text arrows and text background color settings, are not implemented.
