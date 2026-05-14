@@ -399,6 +399,23 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   if (!g_ocr_result->Create(instance)) {
     OutputDebugStringA("OCR result window create failed\n");
   }
+  g_ocr_result->SetCopyCallback([](const std::wstring& text) {
+    if (!g_export_service) {
+      return;
+    }
+    snappin::Result<void> copied =
+        g_export_service->CopyTextToClipboard(text);
+    if (!copied.ok) {
+      std::wstring message = L"OCR copy failed";
+      if (!copied.error.message.empty()) {
+        message = WidenAscii(copied.error.message);
+      }
+      g_tray.ShowNotification(L"SnapPin OCR", message.c_str(), true);
+      return;
+    }
+    g_tray.ShowNotification(L"SnapPin OCR", L"Text copied to clipboard",
+                            false);
+  });
   g_overlay = std::make_unique<snappin::OverlayWindow>();
   if (!g_overlay->Create(instance)) {
     OutputDebugStringA("Overlay create failed\n");

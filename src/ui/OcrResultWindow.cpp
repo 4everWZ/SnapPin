@@ -14,8 +14,10 @@ const int kWindowHeight = 360;
 const int kPadding = 12;
 const int kButtonWidth = 90;
 const int kButtonHeight = 28;
+const int kButtonGap = 8;
 
 const INT_PTR kCmdClose = 6101;
+const INT_PTR kCmdCopy = 6102;
 
 } // namespace
 
@@ -56,8 +58,13 @@ void OcrResultWindow::Destroy() {
     hwnd_ = nullptr;
   }
   edit_text_ = nullptr;
+  btn_copy_ = nullptr;
   btn_close_ = nullptr;
   visible_ = false;
+}
+
+void OcrResultWindow::SetCopyCallback(CopyCallback on_copy) {
+  on_copy_ = std::move(on_copy);
 }
 
 void OcrResultWindow::ShowText(const std::wstring& text) {
@@ -110,6 +117,12 @@ LRESULT OcrResultWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       return 0;
     case WM_COMMAND: {
       const int cmd = LOWORD(wparam);
+      if (cmd == kCmdCopy) {
+        if (on_copy_) {
+          on_copy_(text_);
+        }
+        return 0;
+      }
       if (cmd == kCmdClose) {
         Hide();
         return 0;
@@ -134,6 +147,11 @@ void OcrResultWindow::EnsureControls() {
       WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL |
           ES_AUTOHSCROLL | WS_VSCROLL | WS_HSCROLL,
       0, 0, 0, 0, hwnd_, nullptr, instance_, nullptr);
+  btn_copy_ = CreateWindowW(L"BUTTON", L"Copy",
+                            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+                            kButtonWidth, kButtonHeight, hwnd_,
+                            reinterpret_cast<HMENU>(kCmdCopy), instance_,
+                            nullptr);
   btn_close_ = CreateWindowW(L"BUTTON", L"Close",
                              WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
                              kButtonWidth, kButtonHeight, hwnd_,
@@ -155,6 +173,13 @@ void OcrResultWindow::LayoutControls() {
   SetWindowPos(edit_text_, nullptr, kPadding, kPadding,
                std::max(0, width - kPadding * 2), edit_h,
                SWP_NOZORDER | SWP_NOACTIVATE);
+  if (btn_copy_) {
+    SetWindowPos(btn_copy_, nullptr,
+                 std::max(kPadding,
+                          width - kPadding - kButtonWidth * 2 - kButtonGap),
+                 button_y, kButtonWidth, kButtonHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+  }
   if (btn_close_) {
     SetWindowPos(btn_close_, nullptr,
                  std::max(kPadding, width - kPadding - kButtonWidth),

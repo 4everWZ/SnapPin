@@ -1098,6 +1098,34 @@ bool OcrResultWindowShowsSelectableText() {
   return selectable_readonly && wcscmp(text, expected) == 0;
 }
 
+bool OcrResultWindowCopyButtonInvokesCallback() {
+  snappin::OcrResultWindow window;
+  if (!window.Create(GetModuleHandleW(nullptr))) {
+    return false;
+  }
+
+  const std::wstring expected = L"Copyable OCR text";
+  std::wstring copied;
+  window.SetCopyCallback(
+      [&](const std::wstring& text) { copied = text; });
+  window.ShowText(expected);
+
+  HWND hwnd = FindWindowW(L"SnapPinOcrResultWindow", L"SnapPin OCR Result");
+  if (!hwnd || !window.IsVisible()) {
+    window.Destroy();
+    return false;
+  }
+
+  HWND copy = FindAnnotateButton(hwnd, L"Copy");
+  if (!copy) {
+    window.Destroy();
+    return false;
+  }
+  SendMessageW(copy, BM_CLICK, 0, 0);
+  window.Destroy();
+  return copied == expected;
+}
+
 bool OcrTextProgressEventCarriesUtf8Text() {
   const std::wstring expected = L"Recognized OCR text - \x6587\x672c";
   snappin::ActionEvent event =
@@ -1367,6 +1395,10 @@ int main() {
 
   if (!OcrResultWindowShowsSelectableText()) {
     return 54;
+  }
+
+  if (!OcrResultWindowCopyButtonInvokesCallback()) {
+    return 81;
   }
 
   if (!OcrTextProgressEventCarriesUtf8Text()) {
