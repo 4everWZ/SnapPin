@@ -24,7 +24,8 @@ OCR result flow:
 3. Emit an `ocr.text` progress event containing the recognized text for UI display.
 4. Show `OcrResultWindow` with the recognized text auto-selected in a read-only edit control.
 5. Route the result-window `Copy` action back through `ExportService::CopyTextToClipboard`.
-6. Show tray success or explicit failure feedback.
+6. Keep result-window `Copy` disabled while the displayed result text is empty, and enable it again when non-empty text is shown.
+7. Show tray success or explicit failure feedback.
 
 Future OCR expansion boundary:
 
@@ -61,10 +62,10 @@ Required verification for OCR-related changes:
   - Focused image pin OCR context resolution.
   - OCR crop mapping for in-bounds, clipped, outside, and fallback-coordinate cases.
   - OCR text progress-event UTF-8 roundtrip.
-  - OCR result window selectable text, auto-selection, and repeat-copy callback.
+  - OCR result window selectable text, auto-selection, repeat-copy callback, and empty-result `Copy` disabled state.
   - Image-pin-only OCR menu eligibility.
 - Manual smoke path:
-  - Start capture, run whole-artifact OCR, and verify clipboard text, selected result-window text, result-window `Copy`, and tray feedback.
+  - Start capture, run whole-artifact OCR, and verify clipboard text, selected result-window text, result-window `Copy`, disabled `Copy` behavior for an empty result, and tray feedback.
   - Start capture, choose a selected OCR region, and verify the same result path.
   - Create an image pin, run focused pin OCR from the context menu, and verify copied text or explicit failure feedback.
   - Confirm text and LaTeX pins do not expose OCR.

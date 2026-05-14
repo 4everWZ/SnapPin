@@ -1172,6 +1172,32 @@ bool OcrResultWindowCopyButtonInvokesCallback() {
   return copied == expected;
 }
 
+bool OcrResultWindowCopyButtonTracksTextAvailability() {
+  snappin::OcrResultWindow window;
+  if (!window.Create(GetModuleHandleW(nullptr))) {
+    return false;
+  }
+
+  window.ShowText(L"");
+  HWND hwnd = FindWindowW(L"SnapPinOcrResultWindow", L"SnapPin OCR Result");
+  if (!hwnd || !window.IsVisible()) {
+    window.Destroy();
+    return false;
+  }
+
+  HWND copy = FindAnnotateButton(hwnd, L"Copy");
+  if (!copy) {
+    window.Destroy();
+    return false;
+  }
+  const bool disabled_for_empty = !IsWindowEnabled(copy);
+
+  window.ShowText(L"Non-empty OCR text");
+  const bool enabled_for_text = IsWindowEnabled(copy);
+  window.Destroy();
+  return disabled_for_empty && enabled_for_text;
+}
+
 bool OcrTextProgressEventCarriesUtf8Text() {
   const std::wstring expected = L"Recognized OCR text - \x6587\x672c";
   snappin::ActionEvent event =
@@ -1457,6 +1483,10 @@ int main() {
 
   if (!OcrResultWindowCopyButtonInvokesCallback()) {
     return 81;
+  }
+
+  if (!OcrResultWindowCopyButtonTracksTextAvailability()) {
+    return 85;
   }
 
   if (!OcrTextProgressEventCarriesUtf8Text()) {

@@ -76,6 +76,9 @@ void OcrResultWindow::ShowText(const std::wstring& text) {
   if (edit_text_) {
     SetWindowTextW(edit_text_, text_.c_str());
   }
+  if (btn_copy_) {
+    EnableWindow(btn_copy_, !text_.empty());
+  }
   ShowWindow(hwnd_, SW_SHOWNORMAL);
   SetForegroundWindow(hwnd_);
   if (edit_text_) {
@@ -122,7 +125,7 @@ LRESULT OcrResultWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
     case WM_COMMAND: {
       const int cmd = LOWORD(wparam);
       if (cmd == kCmdCopy) {
-        if (on_copy_) {
+        if (!text_.empty() && on_copy_) {
           on_copy_(text_);
         }
         return 0;
@@ -156,6 +159,9 @@ void OcrResultWindow::EnsureControls() {
                             kButtonWidth, kButtonHeight, hwnd_,
                             reinterpret_cast<HMENU>(kCmdCopy), instance_,
                             nullptr);
+  if (btn_copy_) {
+    EnableWindow(btn_copy_, !text_.empty());
+  }
   btn_close_ = CreateWindowW(L"BUTTON", L"Close",
                              WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
                              kButtonWidth, kButtonHeight, hwnd_,
