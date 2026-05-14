@@ -7,6 +7,7 @@
 - Support artifact actions `Copy`, `Save`, `Pin`, `Mark`, `OCR`, and `Close`.
 - Keep scrolling capture explicitly outside the current implemented baseline.
 - Treat OCR as a basic artifact action with an auto-selected, selectable result window and repeat-copy action, not yet as reference-level pinned-image OCR overlay recognition.
+- Keep detailed OCR source/result rules in `dev_ocr.md`.
 
 ## Math / Logic / Interfaces
 
@@ -39,6 +40,7 @@ Core capture interfaces and action IDs:
 - GDI fallback backend: `src/capture/CaptureServiceGdi.cpp`
 - Artifact persistence: `src/app/ArtifactStore.cpp`
 - Export behavior: `src/export/ExportService.cpp`
+- OCR source/result contract: `docs/specs/dev_ocr.md`
 
 ## Tradeoffs
 

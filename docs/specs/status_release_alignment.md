@@ -23,7 +23,7 @@ Current audit result: **not release-ready**.
 
 | Prompt Requirement / Gate | Concrete Artifact or Command | Evidence Status | Coverage Caveat |
 | --- | --- | --- | --- |
-| "Continue aligning SnapPin docs" | `README.md`, `docs/Implementation-Status.md`, `docs/HANDOFF.md`, `docs/specs/00_overview.md`, `docs/specs/dev_capture.md`, `docs/specs/dev_mark.md`, `docs/specs/dev_pin.md`, `docs/specs/dev_shortcuts_actions.md`, `docs/specs/dev_roadmap.md`, `docs/specs/integration_validation.md`, `docs/specs/matrix_reference_parity.md`, this status file | Updated in this iteration set | Docs still need re-audit before release if reference app publishes new changes |
+| "Continue aligning SnapPin docs" | `README.md`, `docs/Implementation-Status.md`, `docs/HANDOFF.md`, `docs/specs/00_overview.md`, `docs/specs/dev_capture.md`, `docs/specs/dev_mark.md`, `docs/specs/dev_ocr.md`, `docs/specs/dev_pin.md`, `docs/specs/dev_shortcuts_actions.md`, `docs/specs/dev_roadmap.md`, `docs/specs/integration_validation.md`, `docs/specs/matrix_reference_parity.md`, this status file | Updated in this iteration set | Docs still need re-audit before release if reference app publishes new changes |
 | "Check against reference app features" | `docs/specs/matrix_reference_parity.md` and reference app references in `docs/Implementation-Status.md` | Matrix distinguishes implemented, partial, deferred, and not implemented areas | Does not replace manual side-by-side UI comparison against reference app |
 | "Mark tools are far behind" | `src/ui/AnnotateWindow.h`, `src/ui/AnnotateWindow.cpp`, `src/ui/AnnotationEffects.h`, `src/ui/AnnotateLayout.h` | Added/covered Ellipse, Serial, Mosaic, Blur, Eraser, Highlighter, Spotlight, editable multi-click Polyline, basic rectangular Watermark, basic rectangular Magnifier, Text BG, serial direct numeric entry/adjustment, Spotlight wheel dim-strength, Watermark direct text entry, Magnifier wheel zoom, Mosaic/Blur wheel strength, layout helpers, composed-copy pixel smoke paths for baseline drawing tools, Polyline node-edit, segment insertion, and selected-node deletion coverage, Eraser deletion source-restore coverage, and Eraser path-segment coverage | Advanced/deferred reference app mark tools and full manual mouse workflows are not yet automated |
 | "OCR is far behind" | `src/app/ActionDispatcher.cpp`, `src/app/OcrRegion.h`, `src/app/OcrResultEvent.h`, `src/app/AppMain.cpp`, `src/app/ActionRegistry.cpp`, `src/app/PinManager.*`, `src/ui/OcrResultWindow.*`, `src/ui/PinWindow.*`, `src/app/TrayIcon.*` | OCR source paths cover active artifact, selected region, and focused image pin; `ocr.start` source/region parameters are declared; result text is copied and shown auto-selected in a selectable window; result-window repeat copy is callback-tested; tray feedback exists | Pin OCR overlays and advanced recognizers are still missing |
@@ -97,7 +97,7 @@ Current audit result: **not release-ready**.
 ## Key References
 
 - Overview: `docs/specs/00_overview.md`
-- Relevant leaf docs: `docs/specs/dev_mark.md`, `docs/specs/dev_capture.md`, `docs/specs/dev_pin.md`, `docs/specs/dev_shortcuts_actions.md`
+- Relevant leaf docs: `docs/specs/dev_mark.md`, `docs/specs/dev_capture.md`, `docs/specs/dev_ocr.md`, `docs/specs/dev_pin.md`, `docs/specs/dev_shortcuts_actions.md`
 - Matrix: `docs/specs/matrix_reference_parity.md`
 - Integration: `docs/specs/integration_validation.md`
 - Tradeoff IDs: `TO-001`, `TO-002`
@@ -118,6 +118,7 @@ Current audit result: **not release-ready**.
 - 2026-05-14 / OCR result window iteration - added an OCR text progress event payload and selectable read-only OCR result window shown after successful clipboard copy; runtime OCR/manual clipboard/tray verification remains incomplete.
 - 2026-05-14 / OCR result copy iteration - added a result-window `Copy` action that routes displayed OCR text back through the export clipboard path; runtime OCR/manual clipboard/tray verification remains incomplete.
 - 2026-05-14 / OCR result selection iteration - auto-selects displayed OCR result text for immediate copy/edit-control use; runtime OCR/manual clipboard/tray verification remains incomplete.
+- 2026-05-14 / OCR spec split - added `dev_ocr.md` to keep OCR source selection, result flow, future recognizer boundaries, and verification gates out of capture/pin-specific docs.
 - 2026-05-14 / coverage hardening iteration - extracted mosaic block-size and OCR region crop mapping helpers with focused regression coverage; runtime mark drawing and OCR still need manual verification.
 - 2026-05-14 / focused pin OCR iteration - allowed `ocr.start` from a focused image pin and exposed it through the image pin context menu by reusing the artifact OCR source path; selectable pin OCR text remains unimplemented.
 - 2026-05-14 / mark eraser iteration - added a basic whole-object Eraser tool with toolbar coverage.

@@ -39,3 +39,5 @@ Modules expected for future expansion:
 - `src/record/` behind `SNAPPIN_ENABLE_RECORD`
 
 These modules are optional in current build configuration and should not regress baseline behavior when disabled.
+
+OCR behavior and future recognizer boundaries are tracked in `docs/specs/dev_ocr.md` until a dedicated `src/ocr/` module is introduced.

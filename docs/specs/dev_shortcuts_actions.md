@@ -19,7 +19,7 @@ Artifact context actions:
 - `export.save_image`
 - `pin.create_from_artifact`
 - `annotate.open`
-- `ocr.start` (runs system OCR for active artifact, selected OCR region, or focused image pin, copies recognized text to clipboard, and shows a selectable result window)
+- `ocr.start` (runs system OCR for active artifact, selected OCR region, or focused image pin, copies recognized text to clipboard, and shows an auto-selected selectable result window)
 - `artifact.dismiss`
 
 Pin context actions:
@@ -50,8 +50,9 @@ OCR interaction baseline:
 - Direct `ocr.start` without region parameters runs OCR over the whole active artifact.
 - When an image pin is focused and no active artifact exists, `ocr.start` runs OCR over the focused image pin.
 - Image pin context-menu `OCR` dispatches `ocr.start` with `source=focused_pin` so it does not accidentally use an active artifact source.
-- Successful OCR emits recognized text through an `ocr.text` action progress event; `AppMain` shows it in a selectable read-only result window after clipboard copy succeeds.
+- Successful OCR emits recognized text through an `ocr.text` action progress event; `AppMain` shows it in an auto-selected selectable read-only result window after clipboard copy succeeds.
 - reference-style pinned-image OCR text overlays, OCR result editing/management UI, formula recognition shortcut, QR/barcode recognition, and table recognition are not implemented.
+- Detailed OCR source, result, and future recognizer boundaries live in `dev_ocr.md`.
 
 Error handling rule:
 

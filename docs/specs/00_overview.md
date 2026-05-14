@@ -18,7 +18,7 @@ Current in-scope product surface:
 - Artifact actions (`Copy`, `Save`, `Pin`, `Mark`, `OCR`, `Close`) and context-aware errors.
 - Pin baseline (`Ctrl+2`, focused pin shortcuts, lock, close/destroy operations, clipboard text/LaTeX-like fallback).
 - Mark baseline in capture context (Rect/Ellipse/Line/Polyline/Arrow/Serial/Mosaic/Blur/Eraser/Highlighter/Spotlight/Watermark/Magnifier/Pencil/Text, undo/redo, reselect).
-- OCR baseline for active artifact bitmap, user-selected OCR region, or focused image pin, with recognized text copied to clipboard and shown in a selectable result window.
+- OCR baseline for active artifact bitmap, user-selected OCR region, or focused image pin, with recognized text copied to clipboard and shown in an auto-selected selectable result window.
 
 Current out-of-scope or deferred surface:
 
@@ -33,6 +33,7 @@ Current out-of-scope or deferred surface:
 - `dev_capture.md`: capture and artifact lifecycle contracts.
 - `dev_pin.md`: pin lifecycle, focused actions, and interaction model.
 - `dev_mark.md`: annotate session rules and tool/edit contracts.
+- `dev_ocr.md`: OCR source selection, result flow, parity gaps, and future recognizer boundaries.
 - `dev_shortcuts_actions.md`: action IDs, contexts, and keyboard mapping.
 - `dev_roadmap.md`: execution phases and acceptance gates.
 - `matrix_reference_parity.md`: reference parity matrix and current task boundaries.

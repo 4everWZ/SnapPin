@@ -52,7 +52,7 @@ Pin interaction baseline:
 
 - Clipboard-first image pin flow is still prioritized, with text and LaTeX fallback for missing image payloads.
 - Text/LaTeX pins use native text rendering baseline instead of full math layout engine parity in this stage.
-- Focused image pin OCR is exposed from the pin context menu, reuses the artifact OCR pipeline, copies plain text to the clipboard, and shows the selectable OCR result window; it does not provide reference-style selectable OCR overlays on pins.
+- Focused image pin OCR is exposed from the pin context menu, follows the source/result rules in `dev_ocr.md`, copies plain text to the clipboard, and shows the auto-selected selectable OCR result window; it does not provide reference-style selectable OCR overlays on pins.
 
 ## Verification
 
@@ -63,6 +63,6 @@ Required verification for pin-related changes:
 - Manual smoke path:
   - Create pin from artifact and from clipboard.
   - Validate `Ctrl+C`, `Ctrl+S`, `Ctrl+W`, `Ctrl+Shift+W`, `Ctrl+D`, `L`, `T`, `Esc` on focused pin.
-  - Validate focused image pin context-menu OCR copies recognized text, shows the selectable OCR result window, or reports an explicit OCR failure.
+  - Validate focused image pin context-menu OCR copies recognized text, shows the auto-selected selectable OCR result window, or reports an explicit OCR failure.
   - Validate context menu operations: `Copy`, `Save`, `Close`, `Destroy`, `Close All`, `Destroy All`, `Lock/Unlock`, `Always On Top`.
   - Validate clipboard text fallback creates text/LaTeX pins and save exports `.txt` / `.tex`.

@@ -27,7 +27,7 @@ Capture and artifact:
 - `Ctrl+1` opens capture overlay.
 - Selection highlight and final capture area match.
 - Toolbar actions `Copy`, `Save`, `Pin`, `Mark`, `Close` behave as expected.
-- Toolbar `OCR` supports whole-artifact OCR and selected-region OCR, then copies recognized text, shows the selectable OCR result window, and shows tray success/failure feedback.
+- Toolbar `OCR` supports whole-artifact OCR and selected-region OCR, then copies recognized text, shows the auto-selected selectable OCR result window, supports result-window copy, and shows tray success/failure feedback.
 
 Mark flow:
 
@@ -45,7 +45,7 @@ Pin flow:
 
 - Create pin from artifact and clipboard.
 - Focused pin shortcuts work (`Ctrl+C`, `Ctrl+S`, `Ctrl+W`, `Ctrl+Shift+W`, `Ctrl+D`, `L`).
-- Focused image pin context-menu `OCR` runs through `ocr.start` and reports copied text or an explicit OCR failure.
+- Focused image pin context-menu `OCR` runs through `ocr.start` and reports copied text, the auto-selected OCR result window, or an explicit OCR failure.
 - Context menu close/destroy and lock/unlock work.
 - Clipboard text and LaTeX-like fallback pins copy/save as text payloads.
 

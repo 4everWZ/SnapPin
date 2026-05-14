@@ -27,7 +27,7 @@ Primary modules affected by roadmap items:
 - Capture expansion: `src/capture/`, `src/ui/OverlayWindow.cpp`, `src/app/ActionDispatcher.cpp`
 - Mark expansion: `src/ui/AnnotateWindow.cpp`, `src/app/AppMain.cpp`
 - Pin expansion: `src/ui/PinWindow.cpp`, `src/app/PinManager.cpp`
-- OCR expansion: `src/app/ActionDispatcher.cpp`, future `src/ocr/` module
+- OCR expansion: `docs/specs/dev_ocr.md`, `src/app/ActionDispatcher.cpp`, future `src/ocr/` module
 
 ## Tradeoffs
 
