@@ -10,3 +10,13 @@ target_link_libraries(snappin_tests PRIVATE shell32)
 snappin_apply_warnings(snappin_tests)
 
 add_test(NAME snappin_tests COMMAND snappin_tests)
+
+find_program(POWERSHELL_EXECUTABLE NAMES powershell pwsh)
+if(POWERSHELL_EXECUTABLE)
+  add_test(
+    NAME no_reference_terms
+    COMMAND "${POWERSHELL_EXECUTABLE}" -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_CURRENT_SOURCE_DIR}/no_reference_terms.ps1"
+            -RepoRoot "${CMAKE_SOURCE_DIR}"
+  )
+endif()

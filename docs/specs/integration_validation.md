@@ -14,10 +14,14 @@ cmake --build "build/MSVC v143 x64 (vcvars64 + Ninja)-Release" --config Release 
 ctest --test-dir "build/MSVC v143 x64 (vcvars64 + Ninja)-Release" --output-on-failure
 ```
 
+`ctest` includes `no_reference_terms`, which fails if tracked files contain direct
+reference URLs. Keep source URLs in ignored local notes only.
+
 Completion gate:
 
 - Build succeeds.
 - Test suite succeeds with no failures.
+- Direct reference URLs do not appear in tracked files.
 - Built `snappin.exe` can launch and remain running long enough for a basic smoke check.
 
 ## Manual Workflow Checklist
