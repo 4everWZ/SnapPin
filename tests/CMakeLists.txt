@@ -19,4 +19,10 @@ if(POWERSHELL_EXECUTABLE)
             -File "${CMAKE_CURRENT_SOURCE_DIR}/no_reference_terms.ps1"
             -RepoRoot "${CMAKE_SOURCE_DIR}"
   )
+  add_test(
+    NAME no_reference_terms_history
+    COMMAND "${POWERSHELL_EXECUTABLE}" -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_CURRENT_SOURCE_DIR}/no_reference_terms.ps1"
+            -RepoRoot "${CMAKE_SOURCE_DIR}" -AllHistory
+  )
 endif()
