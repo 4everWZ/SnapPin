@@ -2359,8 +2359,9 @@ void AnnotateWindow::DrawMagnifier(HDC hdc, const Annotation& ann) const {
     return;
   }
 
-  const int src_w = std::max(1, r.w / 2);
-  const int src_h = std::max(1, r.h / 2);
+  const int zoom = ClampInt(ann.thickness, 1, 8);
+  const int src_w = std::max(1, r.w / zoom);
+  const int src_h = std::max(1, r.h / zoom);
   const int center_x = r.x + r.w / 2;
   const int center_y = r.y + r.h / 2;
   const int src_x =

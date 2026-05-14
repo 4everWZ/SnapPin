@@ -36,7 +36,7 @@ Known reference parity gaps:
 - Highlighter: basic freehand translucent highlighter is implemented; reference-style highlighter modes and configuration are not implemented.
 - Spotlight: basic rectangular spotlight is implemented; reference-style spotlight modes and configuration are not implemented.
 - Watermark: a basic manually placed rectangular text watermark with direct keyboard text entry is implemented; reference-style presets, batch/centered workflow, and richer configuration are not implemented.
-- Magnifier: a basic rectangular 2x magnifier is implemented; reference-style magnifier modes and configuration are not implemented.
+- Magnifier: a basic rectangular magnifier is implemented with default 2x zoom and mouse-wheel zoom adjustment; reference-style modes and full configuration are not implemented.
 - Pin-side annotation entry is not implemented; SnapPin annotation is currently capture-artifact scoped.
 - Advanced text features from current reference app beta notes, including text arrows and text background color settings, are not implemented.
 

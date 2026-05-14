@@ -880,6 +880,13 @@ bool AnnotateWindowEffectWheelChangesCopiedPixels(const wchar_t* tool_label) {
   return default_pixels && strong_pixels && *default_pixels != *strong_pixels;
 }
 
+bool AnnotateWindowMagnifierWheelChangesZoomPixels() {
+  auto default_pixels = AnnotateWindowCopiesToolPixelsAfterWheel(L"Magnifier", 0);
+  auto strong_pixels = AnnotateWindowCopiesToolPixelsAfterWheel(L"Magnifier", 3);
+  return default_pixels && strong_pixels &&
+         PixelDiffersAt(*default_pixels, *strong_pixels, 32 * 4, 16, 10);
+}
+
 std::shared_ptr<std::vector<uint8_t>>
 AnnotateWindowCopiesWatermarkPixelsAfterChars(const wchar_t* chars) {
   snappin::AnnotateWindow annotate;
@@ -1201,6 +1208,10 @@ int main() {
   if (!AnnotateWindowCopiesComposedToolPixels(L"Magnifier",
                                              AnnotateCreateGesture::Drag)) {
     return 67;
+  }
+
+  if (!AnnotateWindowMagnifierWheelChangesZoomPixels()) {
+    return 76;
   }
 
   if (!AnnotateWindowCopiesComposedToolPixels(L"Line",

@@ -78,9 +78,9 @@ tracked documentation.
 ## Partially implemented / not reference parity
 
 - Mark parity:
-  - Current tools are limited to `Select`, `Rect`, `Ellipse`, `Line`, basic multi-click/editable `Polyline`, `Arrow`, `Serial`, basic rectangular `Mosaic` with wheel strength, basic rectangular `Blur` with wheel strength, basic whole-object/path-segment `Eraser`, basic freehand `Highlighter`, basic rectangular `Spotlight`, basic rectangular `Watermark` with direct text entry, basic rectangular `Magnifier`, `Pencil`, and `Text`.
+  - Current tools are limited to `Select`, `Rect`, `Ellipse`, `Line`, basic multi-click/editable `Polyline`, `Arrow`, `Serial`, basic rectangular `Mosaic` with wheel strength, basic rectangular `Blur` with wheel strength, basic whole-object/path-segment `Eraser`, basic freehand `Highlighter`, basic rectangular `Spotlight`, basic rectangular `Watermark` with direct text entry, basic rectangular `Magnifier` with wheel-controlled zoom, `Pencil`, and `Text`.
   - Automated pixel verification currently covers baseline drawing-tool composed-copy smoke paths and Eraser deletion, not advanced/deferred reference app mark tools or manual UI workflow.
-  - Missing reference-level mark behavior includes smart erase; Polyline supports basic node drag, whole move, segment double-click node insertion, and selected-node deletion, but richer editing parity is still missing. Mosaic, Blur, Watermark, and Magnifier exist only as basic implementations without advanced editing/configuration parity; Watermark direct text entry is a baseline, not the full centered/configurable workflow.
+  - Missing reference-level mark behavior includes smart erase; Polyline supports basic node drag, whole move, segment double-click node insertion, and selected-node deletion, but richer editing parity is still missing. Mosaic, Blur, Watermark, and Magnifier exist only as basic implementations without advanced editing/configuration parity; Watermark direct text entry and Magnifier wheel zoom are baselines, not the full advanced workflows.
   - reference-style highlighter modes and configuration are not implemented.
   - reference-style spotlight modes and configuration are not implemented.
   - Full reference-style partial erasing and mosaic reverse-erase behavior are not implemented.
