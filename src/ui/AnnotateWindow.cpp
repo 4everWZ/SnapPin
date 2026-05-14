@@ -2516,7 +2516,17 @@ void AnnotateWindow::DeleteSelection() {
   if (selected_index_ < 0 || selected_index_ >= static_cast<int>(annotations_.size())) {
     return;
   }
-  if (!AnnotationEditable(annotations_[static_cast<size_t>(selected_index_)].type)) {
+  Annotation& selected = annotations_[static_cast<size_t>(selected_index_)];
+  if (!AnnotationEditable(selected.type)) {
+    return;
+  }
+  if (selected.type == AnnotationType::Polyline && selected_point_index_ >= 0 &&
+      selected_point_index_ < static_cast<int>(selected.points.size()) &&
+      selected.points.size() > 2) {
+    selected.points.erase(selected.points.begin() + selected_point_index_);
+    selected_point_index_ = -1;
+    PushHistory();
+    Invalidate();
     return;
   }
   annotations_.erase(annotations_.begin() + selected_index_);
@@ -2572,6 +2582,7 @@ bool AnnotateWindow::ErasePathSegment(int annotation_index,
   auto insert_pos = annotations_.erase(annotations_.begin() + annotation_index);
   annotations_.insert(insert_pos, replacements.begin(), replacements.end());
   selected_index_ = -1;
+  selected_point_index_ = -1;
   drag_index_ = -1;
   drag_point_index_ = -1;
   text_editing_ = false;

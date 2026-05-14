@@ -29,7 +29,7 @@ Baseline tools and commands:
 Known reference parity gaps:
 
 - Shape tools: rectangle and ellipse are implemented.
-- Line tools: straight line and basic multi-click polyline are implemented; basic polyline node drag, whole-polyline move, and segment double-click node insertion are implemented, but node deletion and richer editing parity are not implemented.
+- Line tools: straight line and basic multi-click polyline are implemented; basic polyline node drag, whole-polyline move, segment double-click node insertion, and selected-node deletion are implemented, but richer editing parity is not implemented.
 - Serial Number: auto-increment placement, direct numeric entry, and `+`/`-` value adjustment are implemented; advanced serial formats/settings are not implemented.
 - Mosaic/Blur: basic rectangular pixelation and basic rectangular blur are implemented with mouse-wheel strength control; smart erase, auto mosaic, synced mosaic operations, and advanced effect modes are not implemented.
 - Eraser: basic whole-object annotation deletion and path-segment erasing for path tools are implemented; full reference-style partial erasing and mosaic reverse-erase behavior are not implemented.
