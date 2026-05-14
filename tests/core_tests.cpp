@@ -880,6 +880,13 @@ bool AnnotateWindowEffectWheelChangesCopiedPixels(const wchar_t* tool_label) {
   return default_pixels && strong_pixels && *default_pixels != *strong_pixels;
 }
 
+bool AnnotateWindowSpotlightWheelChangesDimPixels() {
+  auto default_pixels = AnnotateWindowCopiesToolPixelsAfterWheel(L"Spotlight", 0);
+  auto strong_pixels = AnnotateWindowCopiesToolPixelsAfterWheel(L"Spotlight", 3);
+  return default_pixels && strong_pixels &&
+         PixelDiffersAt(*default_pixels, *strong_pixels, 32 * 4, 2, 2);
+}
+
 bool AnnotateWindowMagnifierWheelChangesZoomPixels() {
   auto default_pixels = AnnotateWindowCopiesToolPixelsAfterWheel(L"Magnifier", 0);
   auto strong_pixels = AnnotateWindowCopiesToolPixelsAfterWheel(L"Magnifier", 3);
@@ -1194,6 +1201,10 @@ int main() {
   if (!AnnotateWindowCopiesComposedToolPixels(L"Spotlight",
                                              AnnotateCreateGesture::Drag)) {
     return 42;
+  }
+
+  if (!AnnotateWindowSpotlightWheelChangesDimPixels()) {
+    return 77;
   }
 
   if (!AnnotateWindowCopiesComposedToolPixels(L"Watermark",

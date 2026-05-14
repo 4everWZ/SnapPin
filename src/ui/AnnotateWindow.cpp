@@ -2293,7 +2293,9 @@ void AnnotateWindow::DrawSpotlight(HDC hdc, const Annotation& ann) const {
 
   BLENDFUNCTION blend = {};
   blend.BlendOp = AC_SRC_OVER;
-  blend.SourceConstantAlpha = 115;
+  const int strength = ClampInt(ann.thickness, 1, 10);
+  blend.SourceConstantAlpha = static_cast<BYTE>(ClampInt(85 + strength * 15,
+                                                         80, 220));
   AlphaBlend(hdc, 0, 0, bitmap_size_px_.w, bitmap_size_px_.h, shade_dc, 0, 0,
              bitmap_size_px_.w, bitmap_size_px_.h, blend);
 
