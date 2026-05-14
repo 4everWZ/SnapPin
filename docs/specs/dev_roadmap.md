@@ -29,6 +29,10 @@ Primary modules affected by roadmap items:
 - Pin expansion: `src/ui/PinWindow.cpp`, `src/app/PinManager.cpp`
 - OCR expansion: `docs/specs/dev_ocr.md`, `src/app/ActionDispatcher.cpp`, future `src/ocr/` module
 
+Issue split:
+
+- `docs/specs/issue_backlog_1_0.md` holds GitHub issue drafts for the 1.0 workstreams until issue write access is available.
+
 ## Tradeoffs
 
 - Features that require large new modules are intentionally sequenced after baseline reliability, even when reference app supports richer behavior today.

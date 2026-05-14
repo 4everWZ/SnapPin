@@ -36,6 +36,7 @@ Current out-of-scope or deferred surface:
 - `dev_ocr.md`: OCR source selection, result flow, parity gaps, and future recognizer boundaries.
 - `dev_shortcuts_actions.md`: action IDs, contexts, and keyboard mapping.
 - `dev_roadmap.md`: execution phases and acceptance gates.
+- `issue_backlog_1_0.md`: GitHub issue drafts for 1.0 workstreams when remote issue creation is unavailable.
 - `matrix_reference_parity.md`: reference parity matrix and current task boundaries.
 - `integration_validation.md`: end-to-end build and verification checklist.
 
