@@ -2392,7 +2392,8 @@ void AnnotateWindow::DrawWatermark(HDC hdc, const Annotation& ann) const {
 
   BLENDFUNCTION blend = {};
   blend.BlendOp = AC_SRC_OVER;
-  blend.SourceConstantAlpha = 125;
+  blend.SourceConstantAlpha =
+      static_cast<BYTE>(WatermarkAlphaForStrength(ann.thickness));
   AlphaBlend(hdc, r.x, r.y, r.w, r.h, blend_dc, 0, 0, r.w, r.h, blend);
 
   SelectObject(blend_dc, old_bitmap);

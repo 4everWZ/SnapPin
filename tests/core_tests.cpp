@@ -985,6 +985,14 @@ bool AnnotateWindowWatermarkDirectTextChangesCopiedPixels() {
          *default_pixels != *custom_pixels;
 }
 
+bool AnnotateWindowWatermarkWheelChangesOpacityPixels() {
+  auto default_pixels =
+      AnnotateWindowCopiesToolPixelsAfterWheel(L"Watermark", 0);
+  auto strong_pixels =
+      AnnotateWindowCopiesToolPixelsAfterWheel(L"Watermark", 3);
+  return default_pixels && strong_pixels && *default_pixels != *strong_pixels;
+}
+
 std::shared_ptr<std::vector<uint8_t>>
 AnnotateWindowCopiesTextPixelsWithBackground(bool background_enabled) {
   snappin::AnnotateWindow annotate;
@@ -1383,6 +1391,10 @@ int main() {
 
   if (!AnnotateWindowWatermarkDirectTextChangesCopiedPixels()) {
     return 75;
+  }
+
+  if (!AnnotateWindowWatermarkWheelChangesOpacityPixels()) {
+    return 84;
   }
 
   if (!AnnotateWindowCopiesComposedToolPixels(L"Magnifier",
