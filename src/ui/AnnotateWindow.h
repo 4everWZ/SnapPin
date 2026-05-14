@@ -132,6 +132,7 @@ private:
   void EndDrag(POINT canvas_pt);
   void UpdatePolylinePreview(POINT canvas_pt);
   void FinishPolyline(POINT canvas_pt);
+  bool InsertPolylinePointAt(POINT canvas_pt);
 
   int HitTestAnnotation(POINT canvas_pt, DragMode* mode_out,
                         int* point_index_out = nullptr) const;
@@ -186,6 +187,7 @@ private:
   POINT drag_current_{};
   Annotation drag_seed_{};
   int selected_index_ = -1;
+  int selected_point_index_ = -1;
   int drag_index_ = -1;
   int drag_point_index_ = -1;
   POINT drag_offset_{};

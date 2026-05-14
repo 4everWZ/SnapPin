@@ -242,6 +242,7 @@ void AnnotateWindow::Destroy() {
   }
   visible_ = false;
   dragging_ = false;
+  selected_point_index_ = -1;
   drag_point_index_ = -1;
   text_editing_ = false;
   polyline_drawing_ = false;
@@ -272,6 +273,7 @@ bool AnnotateWindow::BeginSession(const RectPX& screen_rect,
   history_.push_back(annotations_);
   history_index_ = 0;
   selected_index_ = -1;
+  selected_point_index_ = -1;
   drag_index_ = -1;
   drag_point_index_ = -1;
   drag_mode_ = DragMode::None;
@@ -340,6 +342,7 @@ void AnnotateWindow::EndSession() {
   ShowWindow(hwnd_, SW_HIDE);
   visible_ = false;
   dragging_ = false;
+  selected_point_index_ = -1;
   text_editing_ = false;
   polyline_drawing_ = false;
   serial_entry_text_.clear();
@@ -492,9 +495,28 @@ LRESULT AnnotateWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       EndDrag(pt_canvas);
       return 0;
     }
-    case WM_RBUTTONDOWN:
+    case WM_RBUTTONDOWN: {
+      if (!polyline_drawing_) {
+        break;
+      }
+      POINT pt_client = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+      POINT pt_canvas = {};
+      if (!ToCanvasPoint(pt_client, &pt_canvas)) {
+        pt_canvas = ClampToCanvas(pt_client);
+      }
+      FinishPolyline(pt_canvas);
+      return 0;
+    }
     case WM_LBUTTONDBLCLK: {
       if (!polyline_drawing_) {
+        if (tool_ == Tool::Select) {
+          POINT pt_client = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+          POINT pt_canvas = {};
+          if (ToCanvasPoint(pt_client, &pt_canvas) &&
+              InsertPolylinePointAt(pt_canvas)) {
+            return 0;
+          }
+        }
         break;
       }
       POINT pt_client = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
@@ -534,12 +556,14 @@ LRESULT AnnotateWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         if (text_editing_) {
           text_editing_ = false;
           selected_index_ = -1;
+          selected_point_index_ = -1;
           text_edit_index_ = -1;
           Invalidate();
           return 0;
         }
         if (selected_index_ >= 0) {
           selected_index_ = -1;
+          selected_point_index_ = -1;
           text_editing_ = false;
           text_edit_index_ = -1;
           Invalidate();
@@ -925,6 +949,7 @@ void AnnotateWindow::UpdateToolButtons() {
 void AnnotateWindow::SetTool(Tool tool) {
   polyline_drawing_ = false;
   tool_ = tool;
+  selected_point_index_ = -1;
   text_editing_ = false;
   text_edit_index_ = -1;
   serial_entry_text_.clear();
@@ -1047,6 +1072,7 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
     if (!polyline_drawing_) {
       polyline_drawing_ = true;
       selected_index_ = -1;
+      selected_point_index_ = -1;
       drag_seed_ = {};
       drag_seed_.type = AnnotationType::Polyline;
       drag_seed_.color = color_;
@@ -1070,6 +1096,7 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
         annotations_[static_cast<size_t>(serial_hit)].type ==
             AnnotationType::Serial) {
       selected_index_ = serial_hit;
+      selected_point_index_ = -1;
       drag_index_ = serial_hit;
       drag_seed_ = annotations_[static_cast<size_t>(serial_hit)];
       drag_mode_ = DragMode::MoveText;
@@ -1086,6 +1113,7 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
     serial.serial_value = next_serial_value_++;
     annotations_.push_back(serial);
     selected_index_ = static_cast<int>(annotations_.size() - 1);
+    selected_point_index_ = -1;
     serial_entry_text_.clear();
     serial_entry_target_index_ = -2;
     PushHistory();
@@ -1106,6 +1134,7 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
         annotations_.erase(annotations_.begin() + erase_hit);
       }
       selected_index_ = -1;
+      selected_point_index_ = -1;
       PushHistory();
       Invalidate();
     }
@@ -1121,6 +1150,7 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
     if (text_hit >= 0 &&
         annotations_[static_cast<size_t>(text_hit)].type == AnnotationType::Text) {
       selected_index_ = text_hit;
+      selected_point_index_ = -1;
       drag_index_ = text_hit;
       drag_seed_ = annotations_[static_cast<size_t>(text_hit)];
       drag_mode_ = DragMode::MoveText;
@@ -1137,6 +1167,7 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
     text.p2 = canvas_pt;
     annotations_.push_back(text);
     selected_index_ = static_cast<int>(annotations_.size() - 1);
+    selected_point_index_ = -1;
     text_editing_ = true;
     text_edit_index_ = selected_index_;
     PushHistory();
@@ -1154,6 +1185,8 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
       HitTestAnnotation(canvas_pt, &hit_mode, &hit_point_index);
   if (hit_index >= 0 && AnnotationEditable(annotations_[hit_index].type)) {
     selected_index_ = hit_index;
+    selected_point_index_ =
+        hit_mode == DragMode::MovePolylinePoint ? hit_point_index : -1;
     drag_index_ = hit_index;
     drag_point_index_ = hit_point_index;
     drag_seed_ = annotations_[hit_index];
@@ -1163,6 +1196,7 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
   }
 
   selected_index_ = -1;
+  selected_point_index_ = -1;
   drag_seed_ = {};
   drag_seed_.color = color_;
   drag_seed_.thickness = thickness_;
@@ -1558,6 +1592,50 @@ void AnnotateWindow::FinishPolyline(POINT canvas_pt) {
   drag_seed_ = {};
   drag_mode_ = DragMode::None;
   Invalidate();
+}
+
+bool AnnotateWindow::InsertPolylinePointAt(POINT canvas_pt) {
+  const int path_tol = std::max(kHitTolerance, thickness_ + 2);
+  const double path_tol_sq = static_cast<double>(path_tol * path_tol);
+
+  for (int i = static_cast<int>(annotations_.size()) - 1; i >= 0; --i) {
+    Annotation& ann = annotations_[static_cast<size_t>(i)];
+    if (ann.type != AnnotationType::Polyline || ann.points.size() < 2) {
+      continue;
+    }
+
+    for (size_t p = 0; p < ann.points.size(); ++p) {
+      if (DistanceSq(canvas_pt, ann.points[p]) <= path_tol_sq) {
+        selected_index_ = i;
+        selected_point_index_ = static_cast<int>(p);
+        Invalidate();
+        return true;
+      }
+    }
+
+    int insert_index = -1;
+    double best_distance = path_tol_sq;
+    for (size_t p = 1; p < ann.points.size(); ++p) {
+      const double distance =
+          DistanceToSegmentSq(canvas_pt, ann.points[p - 1], ann.points[p]);
+      if (distance <= best_distance) {
+        best_distance = distance;
+        insert_index = static_cast<int>(p);
+      }
+    }
+    if (insert_index < 0) {
+      continue;
+    }
+
+    ann.points.insert(ann.points.begin() + insert_index, canvas_pt);
+    selected_index_ = i;
+    selected_point_index_ = insert_index;
+    PushHistory();
+    Invalidate();
+    return true;
+  }
+
+  return false;
 }
 
 int AnnotateWindow::HitTestAnnotation(POINT canvas_pt, DragMode* mode_out,
@@ -2409,6 +2487,7 @@ bool AnnotateWindow::Undo() {
   --history_index_;
   annotations_ = history_[history_index_];
   selected_index_ = -1;
+  selected_point_index_ = -1;
   text_editing_ = false;
   text_edit_index_ = -1;
   serial_entry_text_.clear();
@@ -2424,6 +2503,7 @@ bool AnnotateWindow::Redo() {
   ++history_index_;
   annotations_ = history_[history_index_];
   selected_index_ = -1;
+  selected_point_index_ = -1;
   text_editing_ = false;
   text_edit_index_ = -1;
   serial_entry_text_.clear();
@@ -2441,6 +2521,7 @@ void AnnotateWindow::DeleteSelection() {
   }
   annotations_.erase(annotations_.begin() + selected_index_);
   selected_index_ = -1;
+  selected_point_index_ = -1;
   text_editing_ = false;
   text_edit_index_ = -1;
   serial_entry_text_.clear();

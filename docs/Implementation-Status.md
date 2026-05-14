@@ -55,12 +55,12 @@ tracked documentation.
   - Undo/redo stack and delete selected editable annotation.
   - Shift-lock for line/arrow angle snapping.
 - Mark edit baseline:
-  - Rect move/resize, line/arrow move and endpoint drag, basic polyline node drag / whole-polyline move, text move.
+  - Rect move/resize, line/arrow move and endpoint drag, basic polyline node drag / whole-polyline move plus segment double-click node insertion, text move.
   - Text entry with inline typing and commit on `Enter`.
 - Annotated output pipeline:
   - `Ctrl+C` and `Ctrl+S` export composed image through existing export service.
   - `snappin_tests` covers Rect, Ellipse, Line, Polyline, Arrow, Serial, Mosaic, Blur, Highlighter, Spotlight, Watermark, Magnifier, Pencil, and Text creation paths through `Copy` and verifies composed image pixels differ from the source bitmap.
-  - `snappin_tests` covers basic Polyline node editing by verifying a selected node drag changes composed output pixels.
+  - `snappin_tests` covers basic Polyline node editing by verifying selected node drag and segment double-click node insertion change composed output pixels without moving existing endpoints.
   - `snappin_tests` covers Eraser deletion of an editable annotation and verifies copied pixels return to the source bitmap.
   - `snappin_tests` covers basic Eraser path-segment removal on Polyline by verifying remaining segments still change copied pixels.
 - Pin advanced content baseline:
@@ -80,7 +80,7 @@ tracked documentation.
 - Mark parity:
   - Current tools are limited to `Select`, `Rect`, `Ellipse`, `Line`, basic multi-click/editable `Polyline`, `Arrow`, `Serial`, basic rectangular `Mosaic` with wheel strength, basic rectangular `Blur` with wheel strength, basic whole-object/path-segment `Eraser`, basic freehand `Highlighter`, basic rectangular `Spotlight`, basic rectangular `Watermark`, basic rectangular `Magnifier`, `Pencil`, and `Text`.
   - Automated pixel verification currently covers baseline drawing-tool composed-copy smoke paths and Eraser deletion, not advanced/deferred reference app mark tools or manual UI workflow.
-  - Missing reference-level mark behavior includes smart erase; Polyline supports only basic node drag / whole move, and Mosaic, Blur, Watermark, and Magnifier exist only as basic implementations without advanced editing/configuration parity.
+  - Missing reference-level mark behavior includes smart erase; Polyline supports basic node drag, whole move, and segment double-click node insertion, but node deletion and richer editing parity are still missing. Mosaic, Blur, Watermark, and Magnifier exist only as basic implementations without advanced editing/configuration parity.
   - reference-style highlighter modes and configuration are not implemented.
   - reference-style spotlight modes and configuration are not implemented.
   - Full reference-style partial erasing and mosaic reverse-erase behavior are not implemented.

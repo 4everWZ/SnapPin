@@ -450,6 +450,101 @@ bool AnnotateWindowPolylineNodeEditChangesCopiedPixels() {
   return *before_pixels != *copied_pixels;
 }
 
+bool PixelDiffersAt(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b,
+                    int stride, int x, int y) {
+  const size_t i = static_cast<size_t>(y) * static_cast<size_t>(stride) +
+                   static_cast<size_t>(x) * 4;
+  return i + 3 < a.size() && i + 3 < b.size() &&
+         (a[i + 0] != b[i + 0] || a[i + 1] != b[i + 1] ||
+          a[i + 2] != b[i + 2] || a[i + 3] != b[i + 3]);
+}
+
+bool AnnotateWindowPolylineSegmentDoubleClickInsertsNode() {
+  snappin::AnnotateWindow annotate;
+  if (!annotate.Create(GetModuleHandleW(nullptr))) {
+    return false;
+  }
+
+  constexpr int width = 32;
+  constexpr int height = 32;
+  constexpr int stride = width * 4;
+  auto source = MakeAnnotateTestSource(width, height, stride);
+
+  bool callback_seen = false;
+  snappin::AnnotateWindow::Command seen_command =
+      snappin::AnnotateWindow::Command::Close;
+  std::shared_ptr<std::vector<uint8_t>> copied_pixels;
+  snappin::SizePX copied_size = {};
+  int32_t copied_stride = 0;
+  annotate.SetCommandCallback(
+      [&](snappin::AnnotateWindow::Command command,
+          std::shared_ptr<std::vector<uint8_t>> pixels,
+          const snappin::SizePX& size_px, int32_t stride_bytes) {
+        callback_seen = true;
+        seen_command = command;
+        copied_pixels = std::move(pixels);
+        copied_size = size_px;
+        copied_stride = stride_bytes;
+      });
+
+  if (!annotate.BeginSession({100, 100, width, height}, source,
+                             {width, height}, stride)) {
+    annotate.Destroy();
+    return false;
+  }
+
+  HWND hwnd = FindWindowW(L"SnapPinAnnotateWindow", L"SnapPin Mark");
+  if (!hwnd) {
+    annotate.Destroy();
+    return false;
+  }
+
+  HWND polyline_button = FindAnnotateButton(hwnd, L"Polyline");
+  HWND select_button = FindAnnotateButton(hwnd, L"Select");
+  HWND copy_button = FindAnnotateButton(hwnd, L"Copy");
+  if (!polyline_button || !select_button || !copy_button) {
+    annotate.Destroy();
+    return false;
+  }
+
+  constexpr int toolbar_height = 34;
+  SendMessageW(polyline_button, BM_CLICK, 0, 0);
+  SendMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON,
+               MAKELPARAM(4, toolbar_height + 4));
+  SendMessageW(hwnd, WM_LBUTTONUP, 0, MAKELPARAM(4, toolbar_height + 4));
+  SendMessageW(hwnd, WM_MOUSEMOVE, 0, MAKELPARAM(24, toolbar_height + 4));
+  SendMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON,
+               MAKELPARAM(24, toolbar_height + 4));
+  SendMessageW(hwnd, WM_LBUTTONUP, 0, MAKELPARAM(24, toolbar_height + 4));
+  SendMessageW(hwnd, WM_MOUSEMOVE, 0, MAKELPARAM(24, toolbar_height + 24));
+  SendMessageW(hwnd, WM_RBUTTONDOWN, 0, MAKELPARAM(24, toolbar_height + 24));
+
+  SendMessageW(select_button, BM_CLICK, 0, 0);
+  SendMessageW(hwnd, WM_LBUTTONDBLCLK, MK_LBUTTON,
+               MAKELPARAM(14, toolbar_height + 4));
+  SendMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON,
+               MAKELPARAM(14, toolbar_height + 4));
+  SendMessageW(hwnd, WM_MOUSEMOVE, MK_LBUTTON,
+               MAKELPARAM(14, toolbar_height + 14));
+  SendMessageW(hwnd, WM_LBUTTONUP, 0, MAKELPARAM(14, toolbar_height + 14));
+  SendMessageW(copy_button, BM_CLICK, 0, 0);
+  annotate.Destroy();
+
+  if (!callback_seen ||
+      seen_command != snappin::AnnotateWindow::Command::Copy ||
+      !copied_pixels) {
+    return false;
+  }
+  if (copied_size.w != width || copied_size.h != height ||
+      copied_stride != stride ||
+      copied_pixels->size() != source->size()) {
+    return false;
+  }
+  return PixelDiffersAt(*source, *copied_pixels, stride, 4, 4) &&
+         PixelDiffersAt(*source, *copied_pixels, stride, 24, 4) &&
+         PixelDiffersAt(*source, *copied_pixels, stride, 14, 14);
+}
+
 bool AnnotateWindowEraserPartiallyErasesPolylinePixels() {
   snappin::AnnotateWindow annotate;
   if (!annotate.Create(GetModuleHandleW(nullptr))) {
@@ -908,6 +1003,10 @@ int main() {
 
   if (!AnnotateWindowPolylineNodeEditChangesCopiedPixels()) {
     return 69;
+  }
+
+  if (!AnnotateWindowPolylineSegmentDoubleClickInsertsNode()) {
+    return 73;
   }
 
   if (!AnnotateWindowCopiesComposedToolPixels(L"Highlighter",
