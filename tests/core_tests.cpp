@@ -2,6 +2,7 @@
 #include "ActionRegistry.h"
 #include "AnnotationEffects.h"
 #include "AnnotateLayout.h"
+#include "OcrSource.h"
 #include "OcrRegion.h"
 #include "OverlayWindow.h"
 #include "AnnotateWindow.h"
@@ -1779,6 +1780,32 @@ int main() {
                                      {10, 20, 30, 40});
   if (!crop.has_value() || !RectEquals(*crop, {10, 20, 30, 40})) {
     return 19;
+  }
+
+  using OcrSource = snappin::OcrSourceSelection;
+  if (snappin::ResolveOcrSourceSelection(std::nullopt, true, true) !=
+      OcrSource::ActiveArtifact) {
+    return 92;
+  }
+  if (snappin::ResolveOcrSourceSelection(std::optional<std::string>("auto"),
+                                         false, true) !=
+      OcrSource::FocusedPin) {
+    return 93;
+  }
+  if (snappin::ResolveOcrSourceSelection(
+          std::optional<std::string>("focused_pin"), true, false) !=
+      OcrSource::NoSource) {
+    return 94;
+  }
+  if (snappin::ResolveOcrSourceSelection(
+          std::optional<std::string>("active_artifact"), false, true) !=
+      OcrSource::NoSource) {
+    return 95;
+  }
+  if (snappin::ResolveOcrSourceSelection(
+          std::optional<std::string>("unexpected"), true, true) !=
+      OcrSource::InvalidSource) {
+    return 96;
   }
 
   snappin::ActionRegistry registry;

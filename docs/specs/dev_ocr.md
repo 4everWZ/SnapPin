@@ -13,9 +13,11 @@
 OCR source selection:
 
 1. `ocr.start` with `source=focused_pin` must use the focused image pin and must not silently fall back to an active artifact.
-2. `ocr.start` with `x`, `y`, `w`, and `h` must crop the active artifact through `OcrRegion.h`; clipped regions are allowed, empty/outside regions are explicit errors.
-3. `ocr.start` without source or region parameters uses the whole active artifact when one exists.
-4. Text and LaTeX pins are not OCR image sources.
+2. `ocr.start` with `source=active_artifact` must use the active artifact and must not silently fall back to a focused pin.
+3. `ocr.start` with `source=auto`, or without a source parameter, resolves to the active artifact first and then the focused pin if no active artifact exists.
+4. Unknown `source` values are explicit parameter errors.
+5. `ocr.start` with `x`, `y`, `w`, and `h` must crop the selected artifact through `OcrRegion.h`; clipped regions are allowed, empty/outside regions are explicit errors.
+6. Text and LaTeX pins are not OCR image sources.
 
 OCR result flow:
 
@@ -59,6 +61,7 @@ Required verification for OCR-related changes:
 - Unit test target `snappin_tests` passes.
 - Automated coverage should include:
   - `ocr.start` source and region parameter registration.
+  - OCR source resolution for `auto`, `active_artifact`, `focused_pin`, no-source, and invalid-source cases.
   - Focused image pin OCR context resolution.
   - OCR crop mapping for in-bounds, clipped, outside, and fallback-coordinate cases.
   - OCR text progress-event UTF-8 roundtrip.

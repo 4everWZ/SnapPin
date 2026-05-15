@@ -3,6 +3,7 @@
 #include "CaptureFreeze.h"
 #include "OcrRegion.h"
 #include "OcrResultEvent.h"
+#include "OcrSource.h"
 #include "ConfigService.h"
 #include "ErrorCodes.h"
 #include "OverlayWindow.h"
@@ -917,11 +918,21 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req,
     }
 
     const std::optional<std::string> source_param = FindParam(req, "source");
-    const bool force_focused_pin =
-        source_param.has_value() && *source_param == "focused_pin";
+    const OcrSourceSelection source_selection = ResolveOcrSourceSelection(
+        source_param, state_->active_artifact_id.has_value(),
+        state_->focused_pin_id.has_value());
+    if (source_selection == OcrSourceSelection::InvalidSource) {
+      Error err;
+      err.code = ERR_TARGET_INVALID;
+      err.message = "Invalid OCR source";
+      err.retryable = false;
+      err.detail = "ocr_source_param";
+      return Result<void>::Fail(err);
+    }
+
     std::optional<Artifact> art;
     const bool source_is_active_artifact =
-        !force_focused_pin && state_->active_artifact_id.has_value();
+        source_selection == OcrSourceSelection::ActiveArtifact;
     if (source_is_active_artifact) {
       if (!artifacts_) {
         Error err;
@@ -940,7 +951,7 @@ Result<void> ActionDispatcher::ExecuteAction(const ActionInvoke& req,
         err.detail = "artifact_missing";
         return Result<void>::Fail(err);
       }
-    } else if (state_->focused_pin_id.has_value()) {
+    } else if (source_selection == OcrSourceSelection::FocusedPin) {
       if (!pin_manager_) {
         Error err;
         err.code = ERR_INTERNAL_ERROR;

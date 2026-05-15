@@ -15,6 +15,7 @@ add_executable(snappin_app
   KeybindingsService.cpp
   KeybindingsService.h
   OcrRegion.h
+  OcrSource.h
   OcrResultEvent.h
   ArtifactStore.cpp
   ArtifactStore.h

@@ -80,6 +80,9 @@ tracked documentation.
   - `ocr.start` declares optional `source`, `x`, `y`, `w`, and `h` action parameters so focused-pin and selected-region OCR are visible in the action contract.
   - OCR success emits a text progress event that carries the recognized text as UTF-8 for the result window.
   - Image pin context menu exposes OCR; text and LaTeX pins are not treated as OCR image sources.
+  - `snappin_tests` covers strict OCR source selection so explicit focused-pin
+    and active-artifact sources do not silently fall back to another source, and
+    unknown source values are rejected.
   - Selected OCR region crop mapping is covered by focused tests for in-bounds, clipped, outside, and fallback-coordinate cases.
   - OCR success/failure emits a tray notification through the app action-event path.
 
