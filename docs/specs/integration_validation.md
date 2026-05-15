@@ -23,7 +23,9 @@ ignored local notes only.
 the capture command through the hidden main window, drag-selects a capture
 region, verifies the compact artifact toolbar is visible with valid bounds,
 triggers toolbar `Pin`, verifies a real pin window is visible with valid bounds,
-and closes the pin window.
+closes the pin window, repeats capture selection, triggers toolbar `Mark`,
+verifies the child mark window and overlay session state, and closes the mark
+session.
 
 Completion gate:
 
@@ -34,7 +36,8 @@ Completion gate:
 - Built `snappin.exe` can launch and remain running long enough for a basic smoke check.
 - The process-level UI smoke can open the capture overlay, drag-select a region,
   show the compact toolbar, create a pin from that artifact, and close the pin
-  window.
+  window; it can also repeat capture, open mark from the toolbar, and close the
+  mark session.
 
 ## Manual Workflow Checklist
 

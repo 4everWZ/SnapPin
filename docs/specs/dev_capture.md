@@ -68,7 +68,9 @@ Required verification for capture-related changes:
 - CTest `ui_capture_smoke` launches the real app, sends the capture command to
   the hidden main window, drag-selects a capture region, verifies the compact
   artifact toolbar is visible with valid bounds, triggers toolbar `Pin`, verifies
-  a real pin window is visible with valid bounds, and closes the pin window.
+  a real pin window is visible with valid bounds, closes the pin window, repeats
+  capture selection, triggers toolbar `Mark`, verifies the child mark window and
+  capture overlay session state, and closes the mark session.
 - Manual smoke path:
   - Start capture with `Ctrl+1`.
   - After canceling or completing a previous capture, start capture again and

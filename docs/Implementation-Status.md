@@ -57,7 +57,10 @@ tracked documentation.
     the hidden main window, drag-selects a real capture region, verifies the
     compact artifact toolbar is visible with valid bounds, triggers toolbar
     `Pin`, verifies a real pin window is visible with valid bounds, then closes
-    the pin window.
+    the pin window. The same smoke also repeats capture selection, triggers
+    toolbar `Mark`, verifies the child mark window is visible with valid bounds,
+    verifies the overlay remains behind the active mark session, and closes the
+    mark session.
 - Mark session interaction:
   - `Mark` opens annotate inside active capture context without dismissing capture.
   - `Range` button and `R` shortcut re-enter selection in the same capture session.

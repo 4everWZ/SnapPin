@@ -29,6 +29,9 @@ public static class SnapPinSmokeNative {
   [DllImport("user32.dll", SetLastError = true)]
   public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
+  [DllImport("user32.dll", SetLastError = true)]
+  public static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
   [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
   public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
@@ -62,6 +65,7 @@ $VK_ESCAPE = 0x1B
 $MK_LBUTTON = 0x0001
 $CaptureCommand = 1000
 $PinCommand = 2003
+$MarkCommand = 2004
 $MaxCompactToolbarWidth = 320
 
 function Find-WindowByClassForProcess {
@@ -77,16 +81,40 @@ function Find-WindowByClassForProcess {
   $callback = [SnapPinSmokeNative+EnumWindowsProc]{
     param([IntPtr]$hWnd, [IntPtr]$lParam)
 
-    $classText = [System.Text.StringBuilder]::new(256)
-    [void][SnapPinSmokeNative]::GetClassName($hWnd, $classText, $classText.Capacity)
-    if ($classText.ToString() -ne $script:SmokeClassName) {
+    [uint32]$topProcessId = 0
+    [void][SnapPinSmokeNative]::GetWindowThreadProcessId($hWnd, [ref]$topProcessId)
+    if ($topProcessId -ne $script:SmokeProcessId) {
       return $true
     }
 
-    [uint32]$windowProcessId = 0
-    [void][SnapPinSmokeNative]::GetWindowThreadProcessId($hWnd, [ref]$windowProcessId)
-    if ($windowProcessId -eq $script:SmokeProcessId) {
+    $classText = [System.Text.StringBuilder]::new(256)
+    [void][SnapPinSmokeNative]::GetClassName($hWnd, $classText, $classText.Capacity)
+    if ($classText.ToString() -eq $script:SmokeClassName) {
       $script:SmokeFoundWindow = $hWnd
+      return $false
+    }
+
+    $childCallback = [SnapPinSmokeNative+EnumWindowsProc]{
+      param([IntPtr]$childHwnd, [IntPtr]$childParam)
+
+      [uint32]$childProcessId = 0
+      [void][SnapPinSmokeNative]::GetWindowThreadProcessId(
+          $childHwnd, [ref]$childProcessId)
+      if ($childProcessId -ne $script:SmokeProcessId) {
+        return $true
+      }
+
+      $childClassText = [System.Text.StringBuilder]::new(256)
+      [void][SnapPinSmokeNative]::GetClassName(
+          $childHwnd, $childClassText, $childClassText.Capacity)
+      if ($childClassText.ToString() -eq $script:SmokeClassName) {
+        $script:SmokeFoundWindow = $childHwnd
+        return $false
+      }
+      return $true
+    }
+    [void][SnapPinSmokeNative]::EnumChildWindows($hWnd, $childCallback, [IntPtr]::Zero)
+    if ($script:SmokeFoundWindow -ne [IntPtr]::Zero) {
       return $false
     }
     return $true
@@ -225,22 +253,17 @@ function Remove-SmokeConfig {
   }
 }
 
-$resolvedAppPath = (Resolve-Path -LiteralPath $AppPath).Path
-$appDir = Split-Path -Path $resolvedAppPath -Parent
-$process = $null
-$mainWindow = [IntPtr]::Zero
-$smokeConfig = $null
+function Invoke-CaptureDragSelection {
+  param(
+    [System.Diagnostics.Process]$Process,
+    [IntPtr]$MainWindow
+  )
 
-try {
-  $smokeConfig = Initialize-SmokeConfig -ExeDir $appDir
-  $process = Start-Process -FilePath $resolvedAppPath -PassThru -WindowStyle Hidden
-
-  $mainWindow = Wait-WindowForProcess -ClassName "SnapPinHiddenWindow" -Process $process
-  if (-not [SnapPinSmokeNative]::PostMessage($mainWindow, $WM_COMMAND, [IntPtr]$CaptureCommand, [IntPtr]::Zero)) {
+  if (-not [SnapPinSmokeNative]::PostMessage($MainWindow, $WM_COMMAND, [IntPtr]$CaptureCommand, [IntPtr]::Zero)) {
     throw "Failed to post capture command."
   }
 
-  $overlayWindow = Wait-WindowForProcess -ClassName "SnapPinOverlay" -Process $process -Visible
+  $overlayWindow = Wait-WindowForProcess -ClassName "SnapPinOverlay" -Process $Process -Visible
   $overlayRect = Read-WindowRect -Window $overlayWindow
   Assert-PositiveBounds -Rect $overlayRect -Name "Overlay"
 
@@ -268,7 +291,7 @@ try {
       $overlayWindow, $WM_LBUTTONUP, [IntPtr]::Zero,
       (New-LParam -X $endClientX -Y $endClientY))
 
-  $toolbarWindow = Wait-WindowForProcess -ClassName "SnapPinToolbar" -Process $process -Visible
+  $toolbarWindow = Wait-WindowForProcess -ClassName "SnapPinToolbar" -Process $Process -Visible
   $toolbarRect = Read-WindowRect -Window $toolbarWindow
   Assert-PositiveBounds -Rect $toolbarRect -Name "Toolbar"
   $toolbarWidth = $toolbarRect.Right - $toolbarRect.Left
@@ -276,66 +299,94 @@ try {
     throw "Toolbar is wider than the compact budget: $toolbarWidth."
   }
 
-  [void][SnapPinSmokeNative]::SendMessage($toolbarWindow, $WM_COMMAND, [IntPtr]$PinCommand, [IntPtr]::Zero)
+  return @{
+    OverlayWindow = $overlayWindow
+    ToolbarWindow = $toolbarWindow
+  }
+}
+
+function Wait-WindowsHidden {
+  param(
+    [System.Diagnostics.Process]$Process,
+    [IntPtr[]]$Windows,
+    [string]$Name
+  )
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  do {
+    if ($Process.HasExited) {
+      break
+    }
+
+    $anyVisible = $false
+    foreach ($window in $Windows) {
+      if ($window -ne [IntPtr]::Zero -and [SnapPinSmokeNative]::IsWindowVisible($window)) {
+        $anyVisible = $true
+        break
+      }
+    }
+    if (-not $anyVisible) {
+      return
+    }
+    Start-Sleep -Milliseconds 100
+  } while ((Get-Date) -lt $deadline)
+
+  foreach ($window in $Windows) {
+    if ($window -ne [IntPtr]::Zero -and [SnapPinSmokeNative]::IsWindowVisible($window)) {
+      throw "$Name remained visible."
+    }
+  }
+}
+
+$resolvedAppPath = (Resolve-Path -LiteralPath $AppPath).Path
+$appDir = Split-Path -Path $resolvedAppPath -Parent
+$process = $null
+$mainWindow = [IntPtr]::Zero
+$smokeConfig = $null
+
+try {
+  $smokeConfig = Initialize-SmokeConfig -ExeDir $appDir
+  $process = Start-Process -FilePath $resolvedAppPath -PassThru -WindowStyle Hidden
+
+  $mainWindow = Wait-WindowForProcess -ClassName "SnapPinHiddenWindow" -Process $process
+
+  $pinFlow = Invoke-CaptureDragSelection -Process $process -MainWindow $mainWindow
+  [void][SnapPinSmokeNative]::SendMessage(
+      $pinFlow.ToolbarWindow, $WM_COMMAND, [IntPtr]$PinCommand, [IntPtr]::Zero)
   $pinWindow = Wait-WindowForProcess -ClassName "SnapPinPinWindow" -Process $process -Visible
   $pinRect = Read-WindowRect -Window $pinWindow
   Assert-PositiveBounds -Rect $pinRect -Name "Pin"
 
-  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-  do {
-    if ($process.HasExited) {
-      break
-    }
-    if (-not [SnapPinSmokeNative]::IsWindowVisible($toolbarWindow) -and
-        -not [SnapPinSmokeNative]::IsWindowVisible($overlayWindow)) {
-      break
-    }
-    Start-Sleep -Milliseconds 100
-  } while ((Get-Date) -lt $deadline)
-
-  if (-not $process.HasExited -and
-      ([SnapPinSmokeNative]::IsWindowVisible($toolbarWindow) -or
-       [SnapPinSmokeNative]::IsWindowVisible($overlayWindow))) {
-    throw "Capture artifact UI remained visible after pin creation."
-  }
+  Wait-WindowsHidden -Process $process `
+                     -Windows @($pinFlow.ToolbarWindow, $pinFlow.OverlayWindow) `
+                     -Name "Capture artifact UI after pin creation"
 
   if (-not [SnapPinSmokeNative]::PostMessage($pinWindow, $WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero)) {
     throw "Failed to post close to pin window."
   }
+  Wait-WindowsHidden -Process $process -Windows @($pinWindow) -Name "Pin window after close"
 
-  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-  do {
-    if ($process.HasExited) {
-      break
-    }
-    if (-not [SnapPinSmokeNative]::IsWindowVisible($pinWindow)) {
-      break
-    }
-    Start-Sleep -Milliseconds 100
-  } while ((Get-Date) -lt $deadline)
+  $markFlow = Invoke-CaptureDragSelection -Process $process -MainWindow $mainWindow
+  [void][SnapPinSmokeNative]::SendMessage(
+      $markFlow.ToolbarWindow, $WM_COMMAND, [IntPtr]$MarkCommand, [IntPtr]::Zero)
+  $annotateWindow =
+      Wait-WindowForProcess -ClassName "SnapPinAnnotateWindow" -Process $process -Visible
+  $annotateRect = Read-WindowRect -Window $annotateWindow
+  Assert-PositiveBounds -Rect $annotateRect -Name "Annotate"
 
-  if (-not $process.HasExited -and [SnapPinSmokeNative]::IsWindowVisible($pinWindow)) {
-    throw "Pin window remained visible after close."
+  if (-not [SnapPinSmokeNative]::IsWindowVisible($markFlow.OverlayWindow)) {
+    throw "Overlay should remain visible behind active mark session."
   }
+  Wait-WindowsHidden -Process $process `
+                     -Windows @($markFlow.ToolbarWindow) `
+                     -Name "Toolbar after mark open"
 
-  if (-not [SnapPinSmokeNative]::PostMessage($overlayWindow, $WM_KEYDOWN, [IntPtr]$VK_ESCAPE, [IntPtr]::Zero)) {
-    throw "Failed to post Escape to overlay."
+  if (-not [SnapPinSmokeNative]::PostMessage($annotateWindow, $WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero)) {
+    throw "Failed to post close to annotate window."
   }
-
-  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-  do {
-    if ($process.HasExited) {
-      break
-    }
-    if (-not [SnapPinSmokeNative]::IsWindowVisible($overlayWindow)) {
-      break
-    }
-    Start-Sleep -Milliseconds 100
-  } while ((Get-Date) -lt $deadline)
-
-  if (-not $process.HasExited -and [SnapPinSmokeNative]::IsWindowVisible($overlayWindow)) {
-    throw "Overlay remained visible after Escape."
-  }
+  Wait-WindowsHidden -Process $process `
+                     -Windows @($annotateWindow, $markFlow.OverlayWindow) `
+                     -Name "Mark artifact UI after close"
 } finally {
   if ($mainWindow -ne [IntPtr]::Zero) {
     [void][SnapPinSmokeNative]::PostMessage($mainWindow, $WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero)
