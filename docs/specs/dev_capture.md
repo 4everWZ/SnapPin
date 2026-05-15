@@ -31,6 +31,12 @@ Core capture interfaces and action IDs:
 - `ocr.start` (runs Windows system OCR over the active artifact bitmap, an OCR region, or a focused image pin, copies recognized text to clipboard, shows an auto-selected selectable result window with a `Copy` action, and reports success/failure through a tray notification)
 - `artifact.dismiss`
 
+Artifact toolbar OCR behavior:
+
+- Clicking `OCR` on an active artifact runs OCR on that artifact.
+- `Shift+OCR` enters OCR region selection; the next overlay selection runs OCR
+  on that selected region of the active artifact.
+
 ## Code Mapping
 
 - Capture entry and runtime orchestration: `src/app/AppMain.cpp`
@@ -63,5 +69,9 @@ Required verification for capture-related changes:
   - Confirm the artifact toolbar stays compact and does not affect captured
     bitmap dimensions.
   - Trigger `Copy`, `Save`, `Pin`, `OCR`, and `Close` from toolbar.
-  - For OCR, validate whole-artifact OCR and selected-region OCR, then confirm recognized text reaches the clipboard, appears selected in the selectable result window, can be copied again from that window, and a tray notification reports success or an explicit OCR error.
+  - For OCR, validate toolbar `OCR` whole-artifact OCR and `Shift+OCR`
+    selected-region OCR, then confirm recognized text reaches the clipboard,
+    appears selected in the selectable result window, can be copied again from
+    that window, and a tray notification reports success or an explicit OCR
+    error.
   - Confirm `Esc` cancels overlay without stale session state.

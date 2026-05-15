@@ -19,6 +19,12 @@ OCR source selection:
 5. `ocr.start` with `x`, `y`, `w`, and `h` must crop the selected artifact through `OcrRegion.h`; clipped regions are allowed, empty/outside regions are explicit errors.
 6. Text and LaTeX pins are not OCR image sources.
 
+Artifact toolbar behavior:
+
+- A normal toolbar `OCR` click invokes OCR for the active artifact.
+- `Shift+OCR` enters selected-region OCR mode and then invokes OCR with
+  `source=active_artifact` plus region coordinates.
+
 OCR result flow:
 
 1. Run the OCR backend for the selected bitmap source.
@@ -62,6 +68,8 @@ Required verification for OCR-related changes:
 - Automated coverage should include:
   - `ocr.start` source and region parameter registration.
   - OCR source resolution for `auto`, `active_artifact`, `focused_pin`, no-source, and invalid-source cases.
+  - Toolbar OCR mode resolution for default active-artifact OCR versus
+    `Shift+OCR` selected-region OCR.
   - Focused image pin OCR context resolution.
   - OCR crop mapping for in-bounds, clipped, outside, and fallback-coordinate cases.
   - OCR text progress-event UTF-8 roundtrip.

@@ -80,6 +80,8 @@ tracked documentation.
     mapping for copy, save, OCR, close, destroy, close all, and destroy all.
 - OCR baseline:
   - `ocr.start` runs Windows system OCR against the active artifact bitmap, selected OCR region, or focused image pin, then copies result text to clipboard and shows a selectable OCR result window.
+  - Toolbar `OCR` runs whole-active-artifact OCR by default; `Shift+OCR`
+    enters selected-region OCR for the active artifact.
   - The OCR result window auto-selects displayed text and exposes a `Copy` action that routes the currently displayed non-empty text back through the export clipboard path; `Copy` is disabled when the displayed result text is empty.
   - `ocr.start` declares optional `source`, `x`, `y`, `w`, and `h` action parameters so focused-pin and selected-region OCR are visible in the action contract.
   - OCR success emits a text progress event that carries the recognized text as UTF-8 for the result window.
@@ -87,6 +89,8 @@ tracked documentation.
   - `snappin_tests` covers strict OCR source selection so explicit focused-pin
     and active-artifact sources do not silently fall back to another source, and
     unknown source values are rejected.
+  - `snappin_tests` covers toolbar OCR mode selection for normal click versus
+    `Shift+OCR`.
   - Selected OCR region crop mapping is covered by focused tests for in-bounds, clipped, outside, and fallback-coordinate cases.
   - OCR success/failure emits a tray notification through the app action-event path.
 

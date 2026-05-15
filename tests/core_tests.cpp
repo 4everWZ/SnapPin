@@ -3,6 +3,7 @@
 #include "AnnotationEffects.h"
 #include "AnnotateLayout.h"
 #include "ToolbarLayout.h"
+#include "OcrToolbarMode.h"
 #include "OcrSource.h"
 #include "OcrRegion.h"
 #include "OverlayWindow.h"
@@ -1815,6 +1816,20 @@ int main() {
           std::optional<std::string>("unexpected"), true, true) !=
       OcrSource::InvalidSource) {
     return 96;
+  }
+
+  using OcrToolbarAction = snappin::OcrToolbarAction;
+  if (snappin::ResolveOcrToolbarAction(true, true, false) !=
+      OcrToolbarAction::InvokeOcr) {
+    return 99;
+  }
+  if (snappin::ResolveOcrToolbarAction(true, true, true) !=
+      OcrToolbarAction::SelectRegion) {
+    return 100;
+  }
+  if (snappin::ResolveOcrToolbarAction(false, true, true) !=
+      OcrToolbarAction::InvokeOcr) {
+    return 101;
   }
 
   snappin::ActionRegistry registry;

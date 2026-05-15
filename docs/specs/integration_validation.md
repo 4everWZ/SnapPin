@@ -35,7 +35,10 @@ Capture and artifact:
 - Selection highlight and final capture area match.
 - Artifact toolbar remains compact and does not affect the captured bitmap dimensions.
 - Toolbar actions `Copy`, `Save`, `Pin`, `Mark`, `Close` behave as expected.
-- Toolbar `OCR` supports whole-artifact OCR and selected-region OCR, then copies recognized text, shows the auto-selected selectable OCR result window, supports result-window copy, and shows tray success/failure feedback.
+- Toolbar `OCR` supports whole-artifact OCR; `Shift+OCR` supports
+  selected-region OCR. Both paths copy recognized text, show the auto-selected
+  selectable OCR result window, support result-window copy, and show tray
+  success/failure feedback.
 
 Mark flow:
 

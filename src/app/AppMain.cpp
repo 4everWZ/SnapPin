@@ -7,6 +7,7 @@
 #include "ExportService.h"
 #include "KeybindingsService.h"
 #include "OcrResultEvent.h"
+#include "OcrToolbarMode.h"
 #include "PinManager.h"
 #include "SingleInstance.h"
 #include "TrayIcon.h"
@@ -431,6 +432,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                 g_runtime_state.active_artifact_id.has_value()) {
               snappin::ActionInvoke invoke;
               invoke.id = "ocr.start";
+              invoke.kv.push_back({"source", "active_artifact"});
               invoke.kv.push_back({"x", std::to_string(rect.x)});
               invoke.kv.push_back({"y", std::to_string(rect.y)});
               invoke.kv.push_back({"w", std::to_string(rect.w)});
@@ -626,8 +628,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
           }
         },
         []() {
-          if (g_overlay && g_overlay->IsVisible() &&
-              g_runtime_state.active_artifact_id.has_value()) {
+          const bool overlay_visible = g_overlay && g_overlay->IsVisible();
+          const bool has_active_artifact =
+              g_runtime_state.active_artifact_id.has_value();
+          const bool shift_down = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+          const snappin::OcrToolbarAction ocr_action =
+              snappin::ResolveOcrToolbarAction(
+                  overlay_visible, has_active_artifact, shift_down);
+          if (ocr_action == snappin::OcrToolbarAction::SelectRegion) {
             g_ocr_region_select_mode = true;
             g_overlay->SetInteractionEnabled(true);
             g_runtime_state.overlay_visible = g_overlay->IsVisible();
@@ -639,6 +647,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
           if (g_action_dispatcher) {
             snappin::ActionInvoke invoke;
             invoke.id = "ocr.start";
+            if (has_active_artifact) {
+              invoke.kv.push_back({"source", "active_artifact"});
+            }
             g_action_dispatcher->Invoke(invoke);
           }
         },
