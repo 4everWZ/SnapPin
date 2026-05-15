@@ -29,6 +29,24 @@ public:
     OcrSelf = 7,
   };
 
+  enum class ContextMenuAction {
+    Separator = 0,
+    CopySelf,
+    SaveSelf,
+    OcrSelf,
+    CloseSelf,
+    DestroySelf,
+    CloseAll,
+    DestroyAll,
+    ToggleLock,
+    ToggleTopMost,
+  };
+
+  struct ContextMenuItem {
+    ContextMenuAction action = ContextMenuAction::Separator;
+    std::wstring label;
+  };
+
   using FocusCallback = std::function<void(Id64)>;
   using CommandCallback = std::function<void(Id64, Command)>;
 
@@ -51,6 +69,8 @@ public:
   ContentKind content_kind() const;
   static bool SupportsCommandForContent(ContentKind content_kind,
                                         Command command);
+  static std::vector<ContextMenuItem> ContextMenuItemsForContent(
+      ContentKind content_kind, bool locked, bool always_on_top);
 
   void SetCallbacks(FocusCallback on_focus, CommandCallback on_command);
 
@@ -92,4 +112,3 @@ private:
 };
 
 } // namespace snappin
-

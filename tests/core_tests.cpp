@@ -1329,6 +1329,37 @@ bool OcrResultWindowCopyButtonTracksTextAvailability() {
   return disabled_for_empty && enabled_for_text;
 }
 
+bool PinContextMenuContainsLabel(
+    const std::vector<snappin::PinWindow::ContextMenuItem>& items,
+    const wchar_t* label) {
+  for (const auto& item : items) {
+    if (item.label == label) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool PinContextMenuItemsMatchContentKind() {
+  const auto image_items = snappin::PinWindow::ContextMenuItemsForContent(
+      snappin::PinWindow::ContentKind::Image, false, true);
+  const auto text_items = snappin::PinWindow::ContextMenuItemsForContent(
+      snappin::PinWindow::ContentKind::Text, false, true);
+  const auto latex_items = snappin::PinWindow::ContextMenuItemsForContent(
+      snappin::PinWindow::ContentKind::Latex, true, false);
+
+  return PinContextMenuContainsLabel(image_items, L"Copy") &&
+         PinContextMenuContainsLabel(image_items, L"Save Image") &&
+         PinContextMenuContainsLabel(image_items, L"OCR") &&
+         !PinContextMenuContainsLabel(text_items, L"OCR") &&
+         PinContextMenuContainsLabel(text_items, L"Copy Text") &&
+         PinContextMenuContainsLabel(text_items, L"Save .txt") &&
+         !PinContextMenuContainsLabel(latex_items, L"OCR") &&
+         PinContextMenuContainsLabel(latex_items, L"Save .tex") &&
+         PinContextMenuContainsLabel(latex_items, L"Unlock") &&
+         PinContextMenuContainsLabel(latex_items, L"Always On Top");
+}
+
 bool OcrTextProgressEventCarriesUtf8Text() {
   const std::wstring expected = L"Recognized OCR text - \x6587\x672c";
   snappin::ActionEvent event =
@@ -1630,6 +1661,10 @@ int main() {
 
   if (!OcrResultWindowCopyButtonTracksTextAvailability()) {
     return 85;
+  }
+
+  if (!PinContextMenuItemsMatchContentKind()) {
+    return 90;
   }
 
   if (!OcrTextProgressEventCarriesUtf8Text()) {

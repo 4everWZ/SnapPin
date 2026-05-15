@@ -70,6 +70,8 @@ tracked documentation.
   - Clipboard text pin is supported.
   - Clipboard LaTeX-like text is recognized and pinned in LaTeX mode.
   - Text/LaTeX pins support copy/save flows (`Copy Text`, `.txt` / `.tex` save).
+  - `snappin_tests` covers pin context-menu labels and content-kind gating:
+    image pins expose OCR, while text and LaTeX pins do not.
 - OCR baseline:
   - `ocr.start` runs Windows system OCR against the active artifact bitmap, selected OCR region, or focused image pin, then copies result text to clipboard and shows a selectable OCR result window.
   - The OCR result window auto-selects displayed text and exposes a `Copy` action that routes the currently displayed non-empty text back through the export clipboard path; `Copy` is disabled when the displayed result text is empty.

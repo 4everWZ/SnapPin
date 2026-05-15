@@ -52,6 +52,32 @@ const wchar_t* DefaultTitleForContent(PinWindow::ContentKind kind) {
   }
 }
 
+UINT_PTR MenuIdForAction(PinWindow::ContextMenuAction action) {
+  switch (action) {
+    case PinWindow::ContextMenuAction::CopySelf:
+      return kMenuCopy;
+    case PinWindow::ContextMenuAction::SaveSelf:
+      return kMenuSave;
+    case PinWindow::ContextMenuAction::OcrSelf:
+      return kMenuOcr;
+    case PinWindow::ContextMenuAction::CloseSelf:
+      return kMenuClose;
+    case PinWindow::ContextMenuAction::DestroySelf:
+      return kMenuDestroy;
+    case PinWindow::ContextMenuAction::CloseAll:
+      return kMenuCloseAll;
+    case PinWindow::ContextMenuAction::DestroyAll:
+      return kMenuDestroyAll;
+    case PinWindow::ContextMenuAction::ToggleLock:
+      return kMenuToggleLock;
+    case PinWindow::ContextMenuAction::ToggleTopMost:
+      return kMenuToggleTopMost;
+    case PinWindow::ContextMenuAction::Separator:
+    default:
+      return 0;
+  }
+}
+
 } // namespace
 
 PinWindow::~PinWindow() { Destroy(); }
@@ -154,6 +180,33 @@ bool PinWindow::SupportsCommandForContent(ContentKind content_kind,
     return content_kind == ContentKind::Image;
   }
   return true;
+}
+
+std::vector<PinWindow::ContextMenuItem> PinWindow::ContextMenuItemsForContent(
+    ContentKind content_kind, bool locked, bool always_on_top) {
+  const bool image_pin = content_kind == ContentKind::Image;
+  const bool latex_pin = content_kind == ContentKind::Latex;
+
+  std::vector<ContextMenuItem> items;
+  items.push_back({ContextMenuAction::CopySelf,
+                   image_pin ? L"Copy" : L"Copy Text"});
+  items.push_back({ContextMenuAction::SaveSelf,
+                   image_pin ? L"Save Image"
+                             : (latex_pin ? L"Save .tex" : L"Save .txt")});
+  if (SupportsCommandForContent(content_kind, Command::OcrSelf)) {
+    items.push_back({ContextMenuAction::OcrSelf, L"OCR"});
+  }
+  items.push_back({ContextMenuAction::Separator, L""});
+  items.push_back({ContextMenuAction::CloseSelf, L"Close"});
+  items.push_back({ContextMenuAction::DestroySelf, L"Destroy"});
+  items.push_back({ContextMenuAction::Separator, L""});
+  items.push_back({ContextMenuAction::CloseAll, L"Close All"});
+  items.push_back({ContextMenuAction::DestroyAll, L"Destroy All"});
+  items.push_back({ContextMenuAction::Separator, L""});
+  items.push_back({ContextMenuAction::ToggleLock, locked ? L"Unlock" : L"Lock"});
+  items.push_back({ContextMenuAction::ToggleTopMost,
+                   always_on_top ? L"Disable Always On Top" : L"Always On Top"});
+  return items;
 }
 
 void PinWindow::SetCallbacks(FocusCallback on_focus, CommandCallback on_command) {
@@ -447,24 +500,16 @@ void PinWindow::ShowContextMenu(POINT screen_pt) {
   if (!menu) {
     return;
   }
-  const bool image_pin = content_kind_ == ContentKind::Image;
-  const bool latex_pin = content_kind_ == ContentKind::Latex;
-  AppendMenuW(menu, MF_STRING, kMenuCopy, image_pin ? L"Copy" : L"Copy Text");
-  AppendMenuW(menu, MF_STRING, kMenuSave,
-              image_pin ? L"Save Image" : (latex_pin ? L"Save .tex" : L"Save .txt"));
-  if (SupportsCommandForContent(content_kind_, Command::OcrSelf)) {
-    AppendMenuW(menu, MF_STRING, kMenuOcr, L"OCR");
+  const std::vector<ContextMenuItem> items =
+      ContextMenuItemsForContent(content_kind_, locked_, always_on_top_);
+  for (const ContextMenuItem& item : items) {
+    if (item.action == ContextMenuAction::Separator) {
+      AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    } else {
+      AppendMenuW(menu, MF_STRING, MenuIdForAction(item.action),
+                  item.label.c_str());
+    }
   }
-  AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-  AppendMenuW(menu, MF_STRING, kMenuClose, L"Close");
-  AppendMenuW(menu, MF_STRING, kMenuDestroy, L"Destroy");
-  AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-  AppendMenuW(menu, MF_STRING, kMenuCloseAll, L"Close All");
-  AppendMenuW(menu, MF_STRING, kMenuDestroyAll, L"Destroy All");
-  AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-  AppendMenuW(menu, MF_STRING, kMenuToggleLock, locked_ ? L"Unlock" : L"Lock");
-  AppendMenuW(menu, MF_STRING, kMenuToggleTopMost,
-              always_on_top_ ? L"Disable Always On Top" : L"Always On Top");
 
   SetForegroundWindow(hwnd_);
   const UINT cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
@@ -523,5 +568,4 @@ void PinWindow::NotifyFocus() {
 }
 
 } // namespace snappin
-
 

@@ -35,6 +35,9 @@ Pin interaction baseline:
 - Mouse wheel to scale.
 - `Ctrl + Mouse wheel` to change opacity.
 - Image pin context menu includes `OCR`; text and LaTeX pins do not expose OCR.
+- Context menu labels are generated from the pin content kind: image pins use
+  image copy/save wording, text pins use text copy/save wording, and LaTeX pins
+  use `.tex` save wording.
 - `L` toggles lock.
 - `T` toggles always-on-top.
 - `Esc` and double-click close current pin.
@@ -64,5 +67,9 @@ Required verification for pin-related changes:
   - Create pin from artifact and from clipboard.
   - Validate `Ctrl+C`, `Ctrl+S`, `Ctrl+W`, `Ctrl+Shift+W`, `Ctrl+D`, `L`, `T`, `Esc` on focused pin.
   - Validate focused image pin context-menu OCR copies recognized text, shows the auto-selected selectable OCR result window, or reports an explicit OCR failure.
-  - Validate context menu operations: `Copy`, `Save`, `Close`, `Destroy`, `Close All`, `Destroy All`, `Lock/Unlock`, `Always On Top`.
+  - Validate context menu operations and labels: image pins expose `Copy`,
+    `Save Image`, and `OCR`; text pins expose `Copy Text` and `Save .txt`
+    without `OCR`; LaTeX pins expose `Save .tex` without `OCR`; all pin kinds
+    expose close/destroy, close-all/destroy-all, lock/unlock, and always-on-top
+    toggles.
   - Validate clipboard text fallback creates text/LaTeX pins and save exports `.txt` / `.tex`.

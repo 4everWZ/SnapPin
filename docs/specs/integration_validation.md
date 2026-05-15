@@ -56,6 +56,7 @@ Pin flow:
 - Create pin from artifact and clipboard.
 - Focused pin shortcuts work (`Ctrl+C`, `Ctrl+S`, `Ctrl+W`, `Ctrl+Shift+W`, `Ctrl+D`, `L`).
 - Focused image pin context-menu `OCR` runs through `ocr.start` and reports copied text, the auto-selected OCR result window, or an explicit OCR failure.
+- Image, text, and LaTeX pin context menus use content-specific copy/save labels; only image pins expose `OCR`.
 - Context menu close/destroy and lock/unlock work.
 - Clipboard text and LaTeX-like fallback pins copy/save as text payloads.
 
