@@ -61,6 +61,7 @@ $WM_LBUTTONUP = 0x0202
 $VK_ESCAPE = 0x1B
 $MK_LBUTTON = 0x0001
 $CaptureCommand = 1000
+$PinCommand = 2003
 $MaxCompactToolbarWidth = 320
 
 function Find-WindowByClassForProcess {
@@ -275,9 +276,10 @@ try {
     throw "Toolbar is wider than the compact budget: $toolbarWidth."
   }
 
-  if (-not [SnapPinSmokeNative]::PostMessage($toolbarWindow, $WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero)) {
-    throw "Failed to post close to toolbar."
-  }
+  [void][SnapPinSmokeNative]::SendMessage($toolbarWindow, $WM_COMMAND, [IntPtr]$PinCommand, [IntPtr]::Zero)
+  $pinWindow = Wait-WindowForProcess -ClassName "SnapPinPinWindow" -Process $process -Visible
+  $pinRect = Read-WindowRect -Window $pinWindow
+  Assert-PositiveBounds -Rect $pinRect -Name "Pin"
 
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   do {
@@ -294,7 +296,26 @@ try {
   if (-not $process.HasExited -and
       ([SnapPinSmokeNative]::IsWindowVisible($toolbarWindow) -or
        [SnapPinSmokeNative]::IsWindowVisible($overlayWindow))) {
-    throw "Capture artifact UI remained visible after toolbar close."
+    throw "Capture artifact UI remained visible after pin creation."
+  }
+
+  if (-not [SnapPinSmokeNative]::PostMessage($pinWindow, $WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero)) {
+    throw "Failed to post close to pin window."
+  }
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  do {
+    if ($process.HasExited) {
+      break
+    }
+    if (-not [SnapPinSmokeNative]::IsWindowVisible($pinWindow)) {
+      break
+    }
+    Start-Sleep -Milliseconds 100
+  } while ((Get-Date) -lt $deadline)
+
+  if (-not $process.HasExited -and [SnapPinSmokeNative]::IsWindowVisible($pinWindow)) {
+    throw "Pin window remained visible after close."
   }
 
   if (-not [SnapPinSmokeNative]::PostMessage($overlayWindow, $WM_KEYDOWN, [IntPtr]$VK_ESCAPE, [IntPtr]::Zero)) {

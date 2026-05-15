@@ -21,8 +21,9 @@ ignored local notes only.
 
 `ctest` also includes `ui_capture_smoke`, which launches the built app, sends
 the capture command through the hidden main window, drag-selects a capture
-region, verifies the compact artifact toolbar is visible with valid bounds, and
-closes the capture artifact UI.
+region, verifies the compact artifact toolbar is visible with valid bounds,
+triggers toolbar `Pin`, verifies a real pin window is visible with valid bounds,
+and closes the pin window.
 
 Completion gate:
 
@@ -32,7 +33,8 @@ Completion gate:
   commit messages, ref names, or reachable history.
 - Built `snappin.exe` can launch and remain running long enough for a basic smoke check.
 - The process-level UI smoke can open the capture overlay, drag-select a region,
-  show the compact toolbar, and close the capture artifact UI.
+  show the compact toolbar, create a pin from that artifact, and close the pin
+  window.
 
 ## Manual Workflow Checklist
 
