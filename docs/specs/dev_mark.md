@@ -22,6 +22,7 @@ Baseline tools and commands:
 
 - Tools: `Select`, `Rect`, `Ellipse`, `Line`, `Polyline`, `Arrow`, `Serial`, `Mosaic`, `Blur`, `Eraser`, `Highlighter`, `Spotlight`, `Watermark`, `Magnifier`, `Pencil`, `Text`
 - Editing: move/resize geometry, adjust line/arrow endpoints, text input/move, basic text background fill toggle, preset text background color cycling
+- Toolbar presentation: compact labels are used for dense mark controls, but the tool contracts above remain the source of truth. The annotate window client width must stay equal to the capture bitmap width; toolbar width must not expand the screenshot content area or create blank side bands.
 - History: `Ctrl+Z`/`Ctrl+Y`
 - Delete selected shape/text with `Delete`
 - Export composed result via `Ctrl+C` and `Ctrl+S`
@@ -61,8 +62,10 @@ Required verification for mark-related changes:
 - Build succeeds for default release profile.
 - Unit test target `snappin_tests` passes.
 - Automated smoke coverage verifies that baseline drawing tools created through annotate mouse messages change composed `Copy` output pixels, and that Eraser deletion restores copied pixels to the source bitmap.
+- Automated layout coverage verifies that the annotate window client width stays tied to the capture bitmap width instead of the toolbar's preferred width.
 - Manual smoke path:
   - Start capture and enter mark session.
+  - Confirm narrow captures do not gain blank side bands from the annotate toolbar.
   - Draw with each baseline tool and validate edit/selection interactions, including Eraser deletion of editable annotations and Spotlight/Watermark/Magnifier move/resize.
   - Validate undo/redo and delete behavior.
   - Validate `R` reselect path and double-`Esc` session exit rule.

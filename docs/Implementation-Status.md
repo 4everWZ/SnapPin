@@ -49,6 +49,8 @@ tracked documentation.
   - `Mark` opens annotate inside active capture context without dismissing capture.
   - `Range` button and `R` shortcut re-enter selection in the same capture session.
   - First `Esc` exits current mark selection/edit state; next `Esc` exits capture session.
+  - Annotate window client width stays tied to the captured bitmap width, so the mark toolbar does not create blank side bands on narrow captures.
+  - The mark toolbar now uses compact button labels for dense controls while preserving the same tool contracts and keyboard behavior.
 - Mark tools baseline:
   - `Select`, `Rect`, `Ellipse`, `Line`, `Polyline`, `Arrow`, `Serial`, `Mosaic`, `Blur`, `Eraser`, `Highlighter`, `Spotlight`, `Watermark`, `Magnifier`, `Pencil`, `Text`.
   - Serial values auto-increment, accept direct numeric entry for the selected or next serial value, and can be adjusted with `+` / `-`.
@@ -56,11 +58,11 @@ tracked documentation.
   - Shift-lock for line/arrow angle snapping.
 - Mark edit baseline:
   - Rect move/resize, line/arrow move and endpoint drag, basic polyline node drag / whole-polyline move, segment double-click node insertion, selected polyline node deletion, text move.
-  - Text entry with inline typing, `Text BG` background fill toggle, `BG Color` preset background color cycling, and commit on `Enter`.
+  - Text entry with inline typing, compact `BG` background fill toggle, compact `Clr` preset background color cycling, and commit on `Enter`.
 - Annotated output pipeline:
   - `Ctrl+C` and `Ctrl+S` export composed image through existing export service.
   - `snappin_tests` covers Rect, Ellipse, Line, Polyline, Arrow, Serial, Mosaic, Blur, Highlighter, Spotlight, Watermark, Magnifier, Pencil, and Text creation paths through `Copy` and verifies composed image pixels differ from the source bitmap.
-  - `snappin_tests` covers `Text BG` toolbar state, `BG Color` toolbar presence, text background fill output changes, and text background color cycling output changes.
+  - `snappin_tests` covers compact mark toolbar labels, the annotate client-width guard, `BG` toolbar state, `Clr` toolbar presence, text background fill output changes, and text background color cycling output changes.
   - `snappin_tests` covers basic Polyline node editing by verifying selected node drag, segment double-click node insertion, and selected-node deletion semantics.
   - `snappin_tests` covers Eraser deletion of an editable annotation and verifies copied pixels return to the source bitmap.
   - `snappin_tests` covers basic Eraser path-segment removal on Polyline by verifying remaining segments still change copied pixels.

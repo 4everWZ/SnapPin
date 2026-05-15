@@ -15,14 +15,16 @@ ctest --test-dir "build/MSVC v143 x64 (vcvars64 + Ninja)-Release" --output-on-fa
 ```
 
 `ctest` includes `no_reference_terms` and `no_reference_terms_history`, which fail if
-tracked files or fetched repository history contain direct reference URLs. Keep
-source URLs in ignored local notes only.
+tracked content, tracked file names, commit messages, ref names, or reachable
+repository history contain forbidden reference terms. Keep source URLs in
+ignored local notes only.
 
 Completion gate:
 
 - Build succeeds.
 - Test suite succeeds with no failures.
-- Direct reference URLs do not appear in tracked files or fetched history.
+- Forbidden reference terms do not appear in tracked files, tracked file names,
+  commit messages, ref names, or reachable history.
 - Built `snappin.exe` can launch and remain running long enough for a basic smoke check.
 
 ## Manual Workflow Checklist
@@ -37,8 +39,10 @@ Capture and artifact:
 Mark flow:
 
 - `Mark` enters annotate session.
+- Narrow captures do not gain blank side bands from the mark toolbar; the mark
+  window client width stays tied to the captured bitmap width.
 - `Rect`, `Ellipse`, `Line`, `Polyline`, `Arrow`, `Serial`, `Mosaic`, `Blur`, `Highlighter`, `Spotlight`, `Watermark`, `Magnifier`, `Pencil`, and `Text` can be created.
-- Text `Text BG` and `BG Color` controls affect composed output.
+- Text `BG` and `Clr` controls affect composed output.
 - `Polyline` can be selected and adjusted with basic node drag / whole-polyline move.
 - `Serial` can set the selected or next serial value with direct numeric entry and adjust it with `+` / `-`.
 - `Mosaic` and `Blur` output changes when mouse-wheel strength changes before creation.

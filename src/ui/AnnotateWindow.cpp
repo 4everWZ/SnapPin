@@ -18,9 +18,9 @@ namespace {
 const wchar_t kAnnotateClassName[] = L"SnapPinAnnotateWindow";
 const int kToolbarHeight = 34;
 const int kToolbarPadding = 4;
-const int kButtonWidth = 72;
+const int kButtonWidth = 42;
 const int kButtonHeight = 24;
-const int kButtonGap = 3;
+const int kButtonGap = 2;
 const int kLeftToolbarButtonCount = 19;
 const int kRightToolbarButtonCount = 5;
 const int kHandleSize = 8;
@@ -53,6 +53,20 @@ const INT_PTR kCmdTextBackground = 5223;
 const INT_PTR kCmdTextBackgroundColor = 5224;
 
 COLORREF DefaultTextBackgroundColor() { return RGB(255, 255, 210); }
+
+std::wstring ToolbarLabel(const wchar_t* label, bool active) {
+  if (!active) {
+    return label;
+  }
+  std::wstring out = L"*";
+  out += label;
+  return out;
+}
+
+void SetToolbarLabel(HWND button, const wchar_t* label, bool active) {
+  const std::wstring text = ToolbarLabel(label, active);
+  SetWindowTextW(button, text.c_str());
+}
 
 COLORREF NextTextBackgroundColor(COLORREF current) {
   constexpr COLORREF kColors[] = {
@@ -312,14 +326,18 @@ bool AnnotateWindow::BeginSession(const RectPX& screen_rect,
   next_text_background_ = false;
   next_text_background_color_ = DefaultTextBackgroundColor();
 
-  const int min_toolbar_width = AnnotateToolbarMinWidth(
-      kLeftToolbarButtonCount, kRightToolbarButtonCount, kButtonWidth,
-      kButtonGap, kToolbarPadding);
-  const int window_w = std::max(size_px.w, min_toolbar_width);
-  const int window_h = size_px.h + kToolbarHeight;
+  const int client_w = size_px.w;
+  const int client_h = size_px.h + kToolbarHeight;
+  RECT frame = {0, 0, client_w, client_h};
+  const DWORD style = static_cast<DWORD>(GetWindowLongPtrW(hwnd_, GWL_STYLE));
+  const DWORD ex_style =
+      static_cast<DWORD>(GetWindowLongPtrW(hwnd_, GWL_EXSTYLE));
+  AdjustWindowRectEx(&frame, style, FALSE, ex_style);
+  const int window_w = frame.right - frame.left;
+  const int window_h = frame.bottom - frame.top;
   RECT desired = {};
-  desired.left = screen_rect.x - (window_w - size_px.w) / 2;
-  desired.top = screen_rect.y - kToolbarHeight;
+  desired.left = screen_rect.x + frame.left;
+  desired.top = screen_rect.y - kToolbarHeight + frame.top;
   desired.right = desired.left + window_w;
   desired.bottom = desired.top + window_h;
   RECT clamped = desired;
@@ -830,21 +848,21 @@ void AnnotateWindow::EnsureControls() {
     return;
   }
   btn_select_ = CreateWindowW(
-      L"BUTTON", L"Select", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"Sel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdSelect),
       instance_, nullptr);
   btn_rect_ = CreateWindowW(L"BUTTON", L"Rect", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                             0, 0, kButtonWidth, kButtonHeight, hwnd_,
                             reinterpret_cast<HMENU>(kCmdRect), instance_, nullptr);
   btn_ellipse_ = CreateWindowW(
-      L"BUTTON", L"Ellipse", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"Oval", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdEllipse),
       instance_, nullptr);
   btn_line_ = CreateWindowW(L"BUTTON", L"Line", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                             0, 0, kButtonWidth, kButtonHeight, hwnd_,
                             reinterpret_cast<HMENU>(kCmdLine), instance_, nullptr);
   btn_polyline_ = CreateWindowW(
-      L"BUTTON", L"Polyline", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"Poly", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdPolyline),
       instance_, nullptr);
   btn_arrow_ = CreateWindowW(L"BUTTON", L"Arrow",
@@ -852,11 +870,11 @@ void AnnotateWindow::EnsureControls() {
                              kButtonWidth, kButtonHeight, hwnd_,
                              reinterpret_cast<HMENU>(kCmdArrow), instance_, nullptr);
   btn_serial_ = CreateWindowW(
-      L"BUTTON", L"Serial", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"No.", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdSerial),
       instance_, nullptr);
   btn_mosaic_ = CreateWindowW(
-      L"BUTTON", L"Mosaic", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"Mos", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdMosaic),
       instance_, nullptr);
   btn_blur_ = CreateWindowW(
@@ -864,42 +882,42 @@ void AnnotateWindow::EnsureControls() {
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdBlur),
       instance_, nullptr);
   btn_eraser_ = CreateWindowW(
-      L"BUTTON", L"Eraser", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"Erase", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdEraser),
       instance_, nullptr);
   btn_highlighter_ = CreateWindowW(
-      L"BUTTON", L"Highlighter", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"HL", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(kCmdHighlighter), instance_, nullptr);
   btn_spotlight_ = CreateWindowW(
-      L"BUTTON", L"Spotlight", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"Spot", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(kCmdSpotlight), instance_, nullptr);
   btn_watermark_ = CreateWindowW(
-      L"BUTTON", L"Watermark", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"WM", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(kCmdWatermark), instance_, nullptr);
   btn_magnifier_ = CreateWindowW(
-      L"BUTTON", L"Magnifier", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"Zoom", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(kCmdMagnifier), instance_, nullptr);
   btn_pencil_ = CreateWindowW(
-      L"BUTTON", L"Pencil", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"Pen", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdPencil),
       instance_, nullptr);
   btn_text_ = CreateWindowW(L"BUTTON", L"Text", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                             0, 0, kButtonWidth, kButtonHeight, hwnd_,
                             reinterpret_cast<HMENU>(kCmdText), instance_, nullptr);
   btn_text_bg_ = CreateWindowW(
-      L"BUTTON", L"Text BG", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"BG", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(kCmdTextBackground), instance_, nullptr);
   btn_text_bg_color_ = CreateWindowW(
-      L"BUTTON", L"BG Color", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"Clr", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(kCmdTextBackgroundColor), instance_, nullptr);
   btn_reselect_ = CreateWindowW(
-      L"BUTTON", L"Range", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      L"BUTTON", L"Rng", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdReselect),
       instance_, nullptr);
   btn_undo_ = CreateWindowW(L"BUTTON", L"Undo", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
@@ -960,31 +978,22 @@ void AnnotateWindow::UpdateToolButtons() {
   if (!btn_select_) {
     return;
   }
-  SetWindowTextW(btn_select_, tool_ == Tool::Select ? L"[Select]" : L"Select");
-  SetWindowTextW(btn_rect_, tool_ == Tool::Rect ? L"[Rect]" : L"Rect");
-  SetWindowTextW(btn_ellipse_,
-                 tool_ == Tool::Ellipse ? L"[Ellipse]" : L"Ellipse");
-  SetWindowTextW(btn_line_, tool_ == Tool::Line ? L"[Line]" : L"Line");
-  SetWindowTextW(btn_polyline_,
-                 tool_ == Tool::Polyline ? L"[Polyline]" : L"Polyline");
-  SetWindowTextW(btn_arrow_, tool_ == Tool::Arrow ? L"[Arrow]" : L"Arrow");
-  SetWindowTextW(btn_serial_,
-                 tool_ == Tool::Serial ? L"[Serial]" : L"Serial");
-  SetWindowTextW(btn_mosaic_,
-                 tool_ == Tool::Mosaic ? L"[Mosaic]" : L"Mosaic");
-  SetWindowTextW(btn_blur_, tool_ == Tool::Blur ? L"[Blur]" : L"Blur");
-  SetWindowTextW(btn_eraser_,
-                 tool_ == Tool::Eraser ? L"[Eraser]" : L"Eraser");
-  SetWindowTextW(btn_highlighter_,
-                 tool_ == Tool::Highlighter ? L"[Highlighter]" : L"Highlighter");
-  SetWindowTextW(btn_spotlight_,
-                 tool_ == Tool::Spotlight ? L"[Spotlight]" : L"Spotlight");
-  SetWindowTextW(btn_watermark_,
-                 tool_ == Tool::Watermark ? L"[Watermark]" : L"Watermark");
-  SetWindowTextW(btn_magnifier_,
-                 tool_ == Tool::Magnifier ? L"[Magnifier]" : L"Magnifier");
-  SetWindowTextW(btn_pencil_, tool_ == Tool::Pencil ? L"[Pencil]" : L"Pencil");
-  SetWindowTextW(btn_text_, tool_ == Tool::Text ? L"[Text]" : L"Text");
+  SetToolbarLabel(btn_select_, L"Sel", tool_ == Tool::Select);
+  SetToolbarLabel(btn_rect_, L"Rect", tool_ == Tool::Rect);
+  SetToolbarLabel(btn_ellipse_, L"Oval", tool_ == Tool::Ellipse);
+  SetToolbarLabel(btn_line_, L"Line", tool_ == Tool::Line);
+  SetToolbarLabel(btn_polyline_, L"Poly", tool_ == Tool::Polyline);
+  SetToolbarLabel(btn_arrow_, L"Arrow", tool_ == Tool::Arrow);
+  SetToolbarLabel(btn_serial_, L"No.", tool_ == Tool::Serial);
+  SetToolbarLabel(btn_mosaic_, L"Mos", tool_ == Tool::Mosaic);
+  SetToolbarLabel(btn_blur_, L"Blur", tool_ == Tool::Blur);
+  SetToolbarLabel(btn_eraser_, L"Erase", tool_ == Tool::Eraser);
+  SetToolbarLabel(btn_highlighter_, L"HL", tool_ == Tool::Highlighter);
+  SetToolbarLabel(btn_spotlight_, L"Spot", tool_ == Tool::Spotlight);
+  SetToolbarLabel(btn_watermark_, L"WM", tool_ == Tool::Watermark);
+  SetToolbarLabel(btn_magnifier_, L"Zoom", tool_ == Tool::Magnifier);
+  SetToolbarLabel(btn_pencil_, L"Pen", tool_ == Tool::Pencil);
+  SetToolbarLabel(btn_text_, L"Text", tool_ == Tool::Text);
   bool text_bg_active = next_text_background_;
   if (selected_index_ >= 0 &&
       selected_index_ < static_cast<int>(annotations_.size()) &&
@@ -993,7 +1002,7 @@ void AnnotateWindow::UpdateToolButtons() {
     text_bg_active =
         annotations_[static_cast<size_t>(selected_index_)].text_background;
   }
-  SetWindowTextW(btn_text_bg_, text_bg_active ? L"[Text BG]" : L"Text BG");
+  SetToolbarLabel(btn_text_bg_, L"BG", text_bg_active);
 }
 
 void AnnotateWindow::SetTool(Tool tool) {
