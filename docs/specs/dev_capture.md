@@ -17,7 +17,9 @@ Capture session state logic:
 2. User selects area by hover-select or drag-select.
 3. Materialize active artifact with CPU bitmap payload.
 4. Route toolbar actions through action dispatcher with explicit context guards.
-5. End session on dismiss, copy/save completion, or pin creation.
+5. Keep the artifact toolbar compact through the tested layout budget in
+   `ToolbarLayout.h`; toolbar width must not affect captured bitmap width.
+6. End session on dismiss, copy/save completion, or pin creation.
 
 Core capture interfaces and action IDs:
 
@@ -35,7 +37,8 @@ Core capture interfaces and action IDs:
 - Action routing and context checks: `src/app/ActionDispatcher.cpp`
 - OCR region-to-bitmap crop mapping: `src/app/OcrRegion.h`
 - Overlay selection UI: `src/ui/OverlayWindow.cpp`
-- Artifact toolbar UI: `src/ui/ToolbarWindow.cpp`
+- Artifact toolbar UI and layout budget: `src/ui/ToolbarWindow.cpp`,
+  `src/ui/ToolbarLayout.h`
 - Capture backend contracts: `src/capture/CaptureService.h`
 - GDI fallback backend: `src/capture/CaptureServiceGdi.cpp`
 - Artifact persistence: `src/app/ArtifactStore.cpp`
@@ -57,6 +60,8 @@ Required verification for capture-related changes:
 - Manual smoke path:
   - Start capture with `Ctrl+1`.
   - Select area and validate mask/preview alignment.
+  - Confirm the artifact toolbar stays compact and does not affect captured
+    bitmap dimensions.
   - Trigger `Copy`, `Save`, `Pin`, `OCR`, and `Close` from toolbar.
   - For OCR, validate whole-artifact OCR and selected-region OCR, then confirm recognized text reaches the clipboard, appears selected in the selectable result window, can be copied again from that window, and a tray notification reports success or an explicit OCR error.
   - Confirm `Esc` cancels overlay without stale session state.

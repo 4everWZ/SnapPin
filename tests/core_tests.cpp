@@ -2,6 +2,7 @@
 #include "ActionRegistry.h"
 #include "AnnotationEffects.h"
 #include "AnnotateLayout.h"
+#include "ToolbarLayout.h"
 #include "OcrSource.h"
 #include "OcrRegion.h"
 #include "OverlayWindow.h"
@@ -1739,6 +1740,14 @@ int main() {
 
   if (snappin::AnnotateToolbarMinWidth(0, 0, 72, 3, 4) != 8) {
     return 30;
+  }
+
+  if (snappin::ArtifactToolbarWidth(6, 44, 3, 6) != 291) {
+    return 97;
+  }
+
+  if (snappin::DefaultArtifactToolbarWidth() > 300) {
+    return 98;
   }
 
   if (!AnnotateWindowClientWidthStaysAtBitmapWidth()) {

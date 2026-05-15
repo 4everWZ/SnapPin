@@ -45,6 +45,10 @@ tracked documentation.
 
 ## Implemented (pending user verification)
 
+- Capture/artifact toolbar UI:
+  - The artifact toolbar uses a tested compact width budget and no longer relies
+    on a fixed 366px toolbar width.
+  - `snappin_tests` covers the default artifact toolbar width budget.
 - Mark session interaction:
   - `Mark` opens annotate inside active capture context without dismissing capture.
   - `Range` button and `R` shortcut re-enter selection in the same capture session.

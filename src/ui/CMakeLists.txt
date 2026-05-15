@@ -6,6 +6,7 @@ add_library(snappin_ui STATIC
   OcrResultWindow.h
   ToolbarWindow.cpp
   ToolbarWindow.h
+  ToolbarLayout.h
   AnnotationEffects.h
   AnnotateLayout.h
   AnnotateWindow.cpp

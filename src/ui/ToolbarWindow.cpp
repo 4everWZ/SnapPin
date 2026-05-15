@@ -1,4 +1,5 @@
 #include "ToolbarWindow.h"
+#include "ToolbarLayout.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -9,12 +10,12 @@ namespace snappin {
 namespace {
 
 const wchar_t kToolbarClassName[] = L"SnapPinToolbar";
-const int kToolbarWidth = 366;
-const int kToolbarHeight = 34;
-const int kButtonWidth = 55;
-const int kButtonHeight = 24;
-const int kPadding = 6;
-const int kGap = 4;
+const int kToolbarWidth = DefaultArtifactToolbarWidth();
+const int kToolbarHeight = kArtifactToolbarHeight;
+const int kButtonWidth = kArtifactToolbarButtonWidth;
+const int kButtonHeight = kArtifactToolbarButtonHeight;
+const int kPadding = kArtifactToolbarPadding;
+const int kGap = kArtifactToolbarGap;
 
 enum class ToolbarCommand {
   Copy = 2001,
