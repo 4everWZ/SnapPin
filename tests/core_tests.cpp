@@ -994,7 +994,8 @@ bool AnnotateWindowWatermarkWheelChangesOpacityPixels() {
 }
 
 std::shared_ptr<std::vector<uint8_t>>
-AnnotateWindowCopiesTextPixelsWithBackground(bool background_enabled) {
+AnnotateWindowCopiesTextPixelsWithBackground(bool background_enabled,
+                                             int background_color_cycles = 0) {
   snappin::AnnotateWindow annotate;
   if (!annotate.Create(GetModuleHandleW(nullptr))) {
     return {};
@@ -1035,14 +1036,19 @@ AnnotateWindowCopiesTextPixelsWithBackground(bool background_enabled) {
   }
 
   HWND text_bg_button = FindAnnotateButton(hwnd, L"Text BG");
+  HWND text_bg_color_button = FindAnnotateButton(hwnd, L"BG Color");
   HWND text_button = FindAnnotateButton(hwnd, L"Text");
   HWND copy_button = FindAnnotateButton(hwnd, L"Copy");
-  if (!text_bg_button || !text_button || !copy_button) {
+  if (!text_bg_button || !text_button || !copy_button ||
+      (background_color_cycles > 0 && !text_bg_color_button)) {
     annotate.Destroy();
     return {};
   }
   if (background_enabled) {
     SendMessageW(text_bg_button, BM_CLICK, 0, 0);
+  }
+  for (int i = 0; i < background_color_cycles; ++i) {
+    SendMessageW(text_bg_color_button, BM_CLICK, 0, 0);
   }
   SendMessageW(text_button, BM_CLICK, 0, 0);
 
@@ -1082,6 +1088,12 @@ bool AnnotateWindowTextBackgroundChangesCopiedPixels() {
   auto plain_pixels = AnnotateWindowCopiesTextPixelsWithBackground(false);
   auto bg_pixels = AnnotateWindowCopiesTextPixelsWithBackground(true);
   return plain_pixels && bg_pixels && *plain_pixels != *bg_pixels;
+}
+
+bool AnnotateWindowTextBackgroundColorChangesCopiedPixels() {
+  auto default_pixels = AnnotateWindowCopiesTextPixelsWithBackground(true);
+  auto color_pixels = AnnotateWindowCopiesTextPixelsWithBackground(true, 1);
+  return default_pixels && color_pixels && *default_pixels != *color_pixels;
 }
 
 bool OcrResultWindowShowsSelectableText() {
@@ -1304,6 +1316,10 @@ int main() {
     return 78;
   }
 
+  if (!AnnotateWindowHasButton(L"BG Color")) {
+    return 86;
+  }
+
   if (!AnnotateWindowSelectsTool(L"Ellipse", L"[Ellipse]")) {
     return 8;
   }
@@ -1463,6 +1479,10 @@ int main() {
 
   if (!AnnotateWindowTextBackgroundChangesCopiedPixels()) {
     return 80;
+  }
+
+  if (!AnnotateWindowTextBackgroundColorChangesCopiedPixels()) {
+    return 87;
   }
 
   if (!AnnotateWindowEraserRemovesRectFromCopyPixels()) {

@@ -21,7 +21,7 @@ Session rules:
 Baseline tools and commands:
 
 - Tools: `Select`, `Rect`, `Ellipse`, `Line`, `Polyline`, `Arrow`, `Serial`, `Mosaic`, `Blur`, `Eraser`, `Highlighter`, `Spotlight`, `Watermark`, `Magnifier`, `Pencil`, `Text`
-- Editing: move/resize geometry, adjust line/arrow endpoints, text input/move, basic text background fill toggle
+- Editing: move/resize geometry, adjust line/arrow endpoints, text input/move, basic text background fill toggle, preset text background color cycling
 - History: `Ctrl+Z`/`Ctrl+Y`
 - Delete selected shape/text with `Delete`
 - Export composed result via `Ctrl+C` and `Ctrl+S`
@@ -38,7 +38,7 @@ Known reference parity gaps:
 - Watermark: a basic manually placed rectangular text watermark with direct keyboard text entry and mouse-wheel opacity/strength control is implemented; reference-style presets, batch/centered workflow, and richer configuration are not implemented.
 - Magnifier: a basic rectangular magnifier is implemented with default 2x zoom and mouse-wheel zoom adjustment; reference-style modes and full configuration are not implemented.
 - Pin-side annotation entry is not implemented; SnapPin annotation is currently capture-artifact scoped.
-- Advanced text features from current reference app beta notes, including text arrows and text background color settings beyond the basic fill toggle, are not implemented.
+- Text: inline entry, move, background fill toggle, and preset background color cycling are implemented; text arrows and richer background color configuration beyond preset cycling are not implemented.
 
 ## Code Mapping
 

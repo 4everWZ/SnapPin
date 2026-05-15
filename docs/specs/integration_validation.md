@@ -38,6 +38,7 @@ Mark flow:
 
 - `Mark` enters annotate session.
 - `Rect`, `Ellipse`, `Line`, `Polyline`, `Arrow`, `Serial`, `Mosaic`, `Blur`, `Highlighter`, `Spotlight`, `Watermark`, `Magnifier`, `Pencil`, and `Text` can be created.
+- Text `Text BG` and `BG Color` controls affect composed output.
 - `Polyline` can be selected and adjusted with basic node drag / whole-polyline move.
 - `Serial` can set the selected or next serial value with direct numeric entry and adjust it with `+` / `-`.
 - `Mosaic` and `Blur` output changes when mouse-wheel strength changes before creation.

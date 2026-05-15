@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 
 namespace snappin {
 namespace {
@@ -20,7 +21,7 @@ const int kToolbarPadding = 4;
 const int kButtonWidth = 72;
 const int kButtonHeight = 24;
 const int kButtonGap = 3;
-const int kLeftToolbarButtonCount = 18;
+const int kLeftToolbarButtonCount = 19;
 const int kRightToolbarButtonCount = 5;
 const int kHandleSize = 8;
 const int kHitTolerance = 8;
@@ -49,6 +50,24 @@ const INT_PTR kCmdPolyline = 5220;
 const INT_PTR kCmdWatermark = 5221;
 const INT_PTR kCmdMagnifier = 5222;
 const INT_PTR kCmdTextBackground = 5223;
+const INT_PTR kCmdTextBackgroundColor = 5224;
+
+COLORREF DefaultTextBackgroundColor() { return RGB(255, 255, 210); }
+
+COLORREF NextTextBackgroundColor(COLORREF current) {
+  constexpr COLORREF kColors[] = {
+      RGB(255, 255, 210),
+      RGB(210, 235, 255),
+      RGB(214, 255, 224),
+      RGB(255, 220, 235),
+  };
+  for (size_t i = 0; i < std::size(kColors); ++i) {
+    if (kColors[i] == current) {
+      return kColors[(i + 1) % std::size(kColors)];
+    }
+  }
+  return kColors[0];
+}
 
 int ClampInt(int value, int lo, int hi) {
   if (value < lo) {
@@ -291,6 +310,7 @@ bool AnnotateWindow::BeginSession(const RectPX& screen_rect,
   serial_entry_target_index_ = -2;
   next_watermark_text_.clear();
   next_text_background_ = false;
+  next_text_background_color_ = DefaultTextBackgroundColor();
 
   const int min_toolbar_width = AnnotateToolbarMinWidth(
       kLeftToolbarButtonCount, kRightToolbarButtonCount, kButtonWidth,
@@ -435,6 +455,9 @@ LRESULT AnnotateWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
           return 0;
         case kCmdTextBackground:
           ToggleTextBackground();
+          return 0;
+        case kCmdTextBackgroundColor:
+          CycleTextBackgroundColor();
           return 0;
         case kCmdReselect:
           EmitCommand(Command::Reselect);
@@ -871,6 +894,10 @@ void AnnotateWindow::EnsureControls() {
       L"BUTTON", L"Text BG", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_,
       reinterpret_cast<HMENU>(kCmdTextBackground), instance_, nullptr);
+  btn_text_bg_color_ = CreateWindowW(
+      L"BUTTON", L"BG Color", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
+      kButtonWidth, kButtonHeight, hwnd_,
+      reinterpret_cast<HMENU>(kCmdTextBackgroundColor), instance_, nullptr);
   btn_reselect_ = CreateWindowW(
       L"BUTTON", L"Range", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0,
       kButtonWidth, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(kCmdReselect),
@@ -908,7 +935,8 @@ void AnnotateWindow::LayoutControls() {
                          btn_polyline_, btn_arrow_, btn_serial_, btn_mosaic_,
                          btn_blur_, btn_eraser_, btn_highlighter_,
                          btn_spotlight_, btn_watermark_, btn_magnifier_,
-                         btn_pencil_, btn_text_, btn_text_bg_, btn_reselect_};
+                         btn_pencil_, btn_text_, btn_text_bg_,
+                         btn_text_bg_color_, btn_reselect_};
   for (HWND btn : left_buttons) {
     if (btn) {
       SetWindowPos(btn, nullptr, x_left, y, kButtonWidth, kButtonHeight,
@@ -993,6 +1021,25 @@ void AnnotateWindow::ToggleTextBackground() {
     PushHistory();
   } else {
     next_text_background_ = !next_text_background_;
+  }
+  UpdateToolButtons();
+  Invalidate();
+}
+
+void AnnotateWindow::CycleTextBackgroundColor() {
+  if (selected_index_ >= 0 &&
+      selected_index_ < static_cast<int>(annotations_.size()) &&
+      annotations_[static_cast<size_t>(selected_index_)].type ==
+          AnnotationType::Text) {
+    Annotation& ann = annotations_[static_cast<size_t>(selected_index_)];
+    ann.text_background_color =
+        NextTextBackgroundColor(ann.text_background_color);
+    ann.text_background = true;
+    PushHistory();
+  } else {
+    next_text_background_color_ =
+        NextTextBackgroundColor(next_text_background_color_);
+    next_text_background_ = true;
   }
   UpdateToolButtons();
   Invalidate();
@@ -1241,6 +1288,7 @@ void AnnotateWindow::BeginDrag(POINT canvas_pt) {
     text.color = color_;
     text.text_size = 22;
     text.text_background = next_text_background_;
+    text.text_background_color = next_text_background_color_;
     text.p1 = canvas_pt;
     text.p2 = canvas_pt;
     annotations_.push_back(text);
@@ -2126,7 +2174,7 @@ void AnnotateWindow::DrawAnnotation(HDC hdc, const Annotation& ann,
         RECT bg = {ann.p1.x - 3, ann.p1.y - 2,
                    ann.p1.x + std::max(12, text_w) + 6,
                    ann.p1.y + std::max(ann.text_size, text_h) + 4};
-        HBRUSH bg_brush = CreateSolidBrush(RGB(255, 255, 210));
+        HBRUSH bg_brush = CreateSolidBrush(ann.text_background_color);
         FillRect(hdc, &bg, bg_brush);
         DeleteObject(bg_brush);
       }
@@ -2708,6 +2756,7 @@ void AnnotateWindow::ShowContextMenu(POINT screen_pt) {
   AppendMenuW(menu, MF_STRING, kCmdPencil, L"Tool: Pencil");
   AppendMenuW(menu, MF_STRING, kCmdText, L"Tool: Text");
   AppendMenuW(menu, MF_STRING, kCmdTextBackground, L"Text Background");
+  AppendMenuW(menu, MF_STRING, kCmdTextBackgroundColor, L"Text Background Color");
   AppendMenuW(menu, MF_STRING, kCmdReselect, L"Reselect Range (R)");
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kCmdUndo, L"Undo");

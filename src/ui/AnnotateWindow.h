@@ -112,6 +112,7 @@ private:
     int text_size = 20;
     int serial_value = 0;
     bool text_background = false;
+    COLORREF text_background_color = RGB(255, 255, 210);
   };
 
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam,
@@ -126,6 +127,7 @@ private:
   bool ApplySerialEntryChar(wchar_t ch);
   bool ApplyWatermarkEntryChar(wchar_t ch);
   void ToggleTextBackground();
+  void CycleTextBackgroundColor();
 
   RECT CanvasRectClient() const;
   bool ToCanvasPoint(POINT client_pt, POINT* out_canvas) const;
@@ -185,6 +187,7 @@ private:
   int serial_entry_target_index_ = -2;
   std::wstring next_watermark_text_;
   bool next_text_background_ = false;
+  COLORREF next_text_background_color_ = RGB(255, 255, 210);
 
   DragMode drag_mode_ = DragMode::None;
   bool dragging_ = false;
@@ -222,6 +225,7 @@ private:
   HWND btn_pencil_ = nullptr;
   HWND btn_text_ = nullptr;
   HWND btn_text_bg_ = nullptr;
+  HWND btn_text_bg_color_ = nullptr;
   HWND btn_reselect_ = nullptr;
   HWND btn_undo_ = nullptr;
   HWND btn_redo_ = nullptr;
