@@ -38,6 +38,8 @@ Pin interaction baseline:
 - Context menu labels are generated from the pin content kind: image pins use
   image copy/save wording, text pins use text copy/save wording, and LaTeX pins
   use `.tex` save wording.
+- Dispatchable context menu actions map through explicit pin commands; lock and
+  always-on-top stay local window toggles.
 - `L` toggles lock.
 - `T` toggles always-on-top.
 - `Esc` and double-click close current pin.

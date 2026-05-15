@@ -78,6 +78,31 @@ UINT_PTR MenuIdForAction(PinWindow::ContextMenuAction action) {
   }
 }
 
+PinWindow::ContextMenuAction ActionForMenuId(UINT cmd) {
+  switch (cmd) {
+    case kMenuCopy:
+      return PinWindow::ContextMenuAction::CopySelf;
+    case kMenuSave:
+      return PinWindow::ContextMenuAction::SaveSelf;
+    case kMenuOcr:
+      return PinWindow::ContextMenuAction::OcrSelf;
+    case kMenuClose:
+      return PinWindow::ContextMenuAction::CloseSelf;
+    case kMenuDestroy:
+      return PinWindow::ContextMenuAction::DestroySelf;
+    case kMenuCloseAll:
+      return PinWindow::ContextMenuAction::CloseAll;
+    case kMenuDestroyAll:
+      return PinWindow::ContextMenuAction::DestroyAll;
+    case kMenuToggleLock:
+      return PinWindow::ContextMenuAction::ToggleLock;
+    case kMenuToggleTopMost:
+      return PinWindow::ContextMenuAction::ToggleTopMost;
+    default:
+      return PinWindow::ContextMenuAction::Separator;
+  }
+}
+
 } // namespace
 
 PinWindow::~PinWindow() { Destroy(); }
@@ -180,6 +205,31 @@ bool PinWindow::SupportsCommandForContent(ContentKind content_kind,
     return content_kind == ContentKind::Image;
   }
   return true;
+}
+
+std::optional<PinWindow::Command> PinWindow::CommandForContextMenuAction(
+    ContextMenuAction action) {
+  switch (action) {
+    case ContextMenuAction::CopySelf:
+      return Command::CopySelf;
+    case ContextMenuAction::SaveSelf:
+      return Command::SaveSelf;
+    case ContextMenuAction::OcrSelf:
+      return Command::OcrSelf;
+    case ContextMenuAction::CloseSelf:
+      return Command::CloseSelf;
+    case ContextMenuAction::DestroySelf:
+      return Command::DestroySelf;
+    case ContextMenuAction::CloseAll:
+      return Command::CloseAll;
+    case ContextMenuAction::DestroyAll:
+      return Command::DestroyAll;
+    case ContextMenuAction::Separator:
+    case ContextMenuAction::ToggleLock:
+    case ContextMenuAction::ToggleTopMost:
+    default:
+      return std::nullopt;
+  }
 }
 
 std::vector<PinWindow::ContextMenuItem> PinWindow::ContextMenuItemsForContent(
@@ -519,46 +569,21 @@ void PinWindow::ShowContextMenu(POINT screen_pt) {
   if (cmd == 0) {
     return;
   }
-  if (cmd == kMenuToggleLock) {
+  const ContextMenuAction action = ActionForMenuId(cmd);
+  if (action == ContextMenuAction::ToggleLock) {
     locked_ = !locked_;
     return;
   }
-  if (cmd == kMenuToggleTopMost) {
+  if (action == ContextMenuAction::ToggleTopMost) {
     always_on_top_ = !always_on_top_;
     UpdateTopMost();
     return;
   }
-  if (!on_command_) {
+  const std::optional<Command> command = CommandForContextMenuAction(action);
+  if (!on_command_ || !command) {
     return;
   }
-  if (cmd == kMenuCopy) {
-    on_command_(pin_id_, Command::CopySelf);
-    return;
-  }
-  if (cmd == kMenuSave) {
-    on_command_(pin_id_, Command::SaveSelf);
-    return;
-  }
-  if (cmd == kMenuOcr) {
-    on_command_(pin_id_, Command::OcrSelf);
-    return;
-  }
-  if (cmd == kMenuClose) {
-    on_command_(pin_id_, Command::CloseSelf);
-    return;
-  }
-  if (cmd == kMenuDestroy) {
-    on_command_(pin_id_, Command::DestroySelf);
-    return;
-  }
-  if (cmd == kMenuCloseAll) {
-    on_command_(pin_id_, Command::CloseAll);
-    return;
-  }
-  if (cmd == kMenuDestroyAll) {
-    on_command_(pin_id_, Command::DestroyAll);
-    return;
-  }
+  on_command_(pin_id_, *command);
 }
 
 void PinWindow::NotifyFocus() {
@@ -568,4 +593,3 @@ void PinWindow::NotifyFocus() {
 }
 
 } // namespace snappin
-

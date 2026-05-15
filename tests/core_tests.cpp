@@ -1360,6 +1360,30 @@ bool PinContextMenuItemsMatchContentKind() {
          PinContextMenuContainsLabel(latex_items, L"Always On Top");
 }
 
+bool PinContextMenuActionMapsToDispatchCommand() {
+  using Action = snappin::PinWindow::ContextMenuAction;
+  using Command = snappin::PinWindow::Command;
+
+  return snappin::PinWindow::CommandForContextMenuAction(Action::CopySelf) ==
+             std::optional<Command>(Command::CopySelf) &&
+         snappin::PinWindow::CommandForContextMenuAction(Action::SaveSelf) ==
+             std::optional<Command>(Command::SaveSelf) &&
+         snappin::PinWindow::CommandForContextMenuAction(Action::OcrSelf) ==
+             std::optional<Command>(Command::OcrSelf) &&
+         snappin::PinWindow::CommandForContextMenuAction(Action::CloseSelf) ==
+             std::optional<Command>(Command::CloseSelf) &&
+         snappin::PinWindow::CommandForContextMenuAction(Action::DestroySelf) ==
+             std::optional<Command>(Command::DestroySelf) &&
+         snappin::PinWindow::CommandForContextMenuAction(Action::CloseAll) ==
+             std::optional<Command>(Command::CloseAll) &&
+         snappin::PinWindow::CommandForContextMenuAction(Action::DestroyAll) ==
+             std::optional<Command>(Command::DestroyAll) &&
+         !snappin::PinWindow::CommandForContextMenuAction(Action::ToggleLock) &&
+         !snappin::PinWindow::CommandForContextMenuAction(
+             Action::ToggleTopMost) &&
+         !snappin::PinWindow::CommandForContextMenuAction(Action::Separator);
+}
+
 bool OcrTextProgressEventCarriesUtf8Text() {
   const std::wstring expected = L"Recognized OCR text - \x6587\x672c";
   snappin::ActionEvent event =
@@ -1665,6 +1689,10 @@ int main() {
 
   if (!PinContextMenuItemsMatchContentKind()) {
     return 90;
+  }
+
+  if (!PinContextMenuActionMapsToDispatchCommand()) {
+    return 91;
   }
 
   if (!OcrTextProgressEventCarriesUtf8Text()) {

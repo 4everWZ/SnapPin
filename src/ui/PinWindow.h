@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -69,6 +70,8 @@ public:
   ContentKind content_kind() const;
   static bool SupportsCommandForContent(ContentKind content_kind,
                                         Command command);
+  static std::optional<Command> CommandForContextMenuAction(
+      ContextMenuAction action);
   static std::vector<ContextMenuItem> ContextMenuItemsForContent(
       ContentKind content_kind, bool locked, bool always_on_top);
 
