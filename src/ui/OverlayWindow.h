@@ -37,6 +37,9 @@ public:
   // Exposed for lightweight regression testing of mask behavior.
   static bool ShouldUseSelectionHole(bool interaction_enabled, bool dragging,
                                      bool has_selection, bool frozen_active);
+  // Exposed to guard show ordering: position hidden first, show only after
+  // state and region reset.
+  static UINT PositionBeforeShowFlags();
 
 private:
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);

@@ -14,6 +14,8 @@
 Capture session state logic:
 
 1. Start capture (`capture.start`) and show frozen-frame overlay.
+   The overlay must reset stale drag/selection/hover state, position while still
+   hidden, refresh its mask region, and only then call `ShowWindow`.
 2. User selects area by hover-select or drag-select.
 3. Materialize active artifact with CPU bitmap payload.
 4. Route toolbar actions through action dispatcher with explicit context guards.
@@ -63,8 +65,13 @@ Required verification for capture-related changes:
 
 - Build succeeds for default release profile.
 - Unit test target `snappin_tests` passes.
+- CTest `ui_capture_smoke` launches the real app, sends the capture command to
+  the hidden main window, verifies the capture overlay is visible with valid
+  bounds, and exits it with `Esc`.
 - Manual smoke path:
   - Start capture with `Ctrl+1`.
+  - After canceling or completing a previous capture, start capture again and
+    confirm the overlay does not flash at the previous session position.
   - Select area and validate mask/preview alignment.
   - Confirm the artifact toolbar stays compact and does not affect captured
     bitmap dimensions.

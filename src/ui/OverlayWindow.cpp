@@ -20,6 +20,7 @@ const int kBorderPx = 2;
 const int kEscapeHotkeyId = 42;
 const UINT_PTR kOverlayRefreshTimerId = 7;
 const UINT kOverlayRefreshIntervalMs = 33;
+const UINT kPositionBeforeShowFlags = SWP_NOACTIVATE;
 
 void DrawFrozenFrame(HDC hdc, const RECT& rc, const uint8_t* pixels, int32_t width,
                      int32_t height) {
@@ -203,26 +204,27 @@ void OverlayWindow::ShowForRect(const RectPX& rect) {
   SetClickThrough(false);
   interaction_enabled_ = true;
   EnsureEscapeHotkey(true);
+  dragging_ = false;
+  has_selection_ = false;
+  selected_rect_px_ = {};
+  selected_rect_client_px_ = {};
+  hover_rect_px_ = {};
   monitor_origin_.x = rect.x;
   monitor_origin_.y = rect.y;
   monitor_size_.cx = rect.w;
   monitor_size_.cy = rect.h;
 
   SetWindowPos(hwnd_, HWND_TOPMOST, monitor_origin_.x, monitor_origin_.y,
-               monitor_size_.cx, monitor_size_.cy, SWP_SHOWWINDOW);
+               monitor_size_.cx, monitor_size_.cy, PositionBeforeShowFlags());
+  UpdateDpi(GetDpiForWindow(hwnd_));
+  UpdateHoverRect();
+  UpdateMaskRegion();
+  Invalidate();
   ShowWindow(hwnd_, SW_SHOW);
   SetForegroundWindow(hwnd_);
   SetFocus(hwnd_);
-  UpdateDpi(GetDpiForWindow(hwnd_));
   visible_ = true;
-  dragging_ = false;
-  has_selection_ = false;
-  selected_rect_px_ = {};
-  selected_rect_client_px_ = {};
-  hover_rect_px_ = {};
-  UpdateHoverRect();
   SetTimer(hwnd_, kOverlayRefreshTimerId, kOverlayRefreshIntervalMs, nullptr);
-  UpdateMaskRegion();
   Invalidate();
 }
 
@@ -543,6 +545,10 @@ bool OverlayWindow::ShouldUseSelectionHole(bool interaction_enabled,
                                            bool frozen_active) {
   return ShouldUseSelectionHoleImpl(interaction_enabled, dragging,
                                     has_selection, frozen_active);
+}
+
+UINT OverlayWindow::PositionBeforeShowFlags() {
+  return kPositionBeforeShowFlags;
 }
 
 void OverlayWindow::UpdateDrag(POINT pt_client) {

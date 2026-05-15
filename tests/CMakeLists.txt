@@ -25,4 +25,11 @@ if(POWERSHELL_EXECUTABLE)
             -File "${CMAKE_CURRENT_SOURCE_DIR}/no_reference_terms.ps1"
             -RepoRoot "${CMAKE_SOURCE_DIR}" -AllHistory
   )
+  add_test(
+    NAME ui_capture_smoke
+    COMMAND "${POWERSHELL_EXECUTABLE}" -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_CURRENT_SOURCE_DIR}/ui_capture_smoke.ps1"
+            -AppPath "$<TARGET_FILE:snappin_app>"
+  )
+  set_tests_properties(ui_capture_smoke PROPERTIES RUN_SERIAL TRUE TIMEOUT 20)
 endif()

@@ -16,6 +16,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -106,6 +107,7 @@ bool AnnotateWindowSelectsTool(const wchar_t* label,
 std::shared_ptr<std::vector<uint8_t>> MakeAnnotateTestSource(int width,
                                                              int height,
                                                              int stride);
+bool RectEquals(snappin::RectPX a, snappin::RectPX b);
 
 bool AnnotateWindowClientWidthStaysAtBitmapWidth() {
   snappin::AnnotateWindow annotate;
@@ -137,6 +139,60 @@ bool AnnotateWindowClientWidthStaysAtBitmapWidth() {
   }
   annotate.Destroy();
   return (rc.right - rc.left) == width;
+}
+
+bool OverlayWindowReopensAtNewRectAfterHide() {
+  snappin::OverlayWindow overlay;
+  if (!overlay.Create(GetModuleHandleW(nullptr))) {
+    return false;
+  }
+
+  POINT cursor = {};
+  GetCursorPos(&cursor);
+  HMONITOR monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO mi = {};
+  mi.cbSize = sizeof(mi);
+  if (!GetMonitorInfoW(monitor, &mi)) {
+    overlay.Destroy();
+    return false;
+  }
+
+  const int monitor_width =
+      static_cast<int>(mi.rcMonitor.right - mi.rcMonitor.left);
+  const int monitor_height =
+      static_cast<int>(mi.rcMonitor.bottom - mi.rcMonitor.top);
+  const int width = std::min(420, monitor_width);
+  const int height = std::min(260, monitor_height);
+  const snappin::RectPX first{mi.rcMonitor.left + 20, mi.rcMonitor.top + 20,
+                              width, height};
+  const snappin::RectPX second{mi.rcMonitor.left + 80, mi.rcMonitor.top + 80,
+                               width, height};
+
+  overlay.ShowForRect(first);
+  RECT first_wr = {};
+  const bool first_visible =
+      IsWindowVisible(overlay.Handle()) &&
+      GetWindowRect(overlay.Handle(), &first_wr) &&
+      RectEquals({first_wr.left, first_wr.top, first_wr.right - first_wr.left,
+                  first_wr.bottom - first_wr.top},
+                 first);
+
+  overlay.Hide();
+  const bool hidden = !IsWindowVisible(overlay.Handle());
+
+  overlay.ShowForRect(second);
+  RECT second_wr = {};
+  const bool second_visible =
+      IsWindowVisible(overlay.Handle()) &&
+      GetWindowRect(overlay.Handle(), &second_wr) &&
+      RectEquals({second_wr.left, second_wr.top,
+                  second_wr.right - second_wr.left,
+                  second_wr.bottom - second_wr.top},
+                 second);
+
+  overlay.Hide();
+  overlay.Destroy();
+  return first_visible && hidden && second_visible;
 }
 
 enum class AnnotateCreateGesture {
@@ -1447,6 +1503,15 @@ int main() {
   if (snappin::OverlayWindow::ShouldUseSelectionHole(
           true, false, true, true)) {
     return 4;
+  }
+
+  if ((snappin::OverlayWindow::PositionBeforeShowFlags() & SWP_SHOWWINDOW) !=
+      0) {
+    return 102;
+  }
+
+  if (!OverlayWindowReopensAtNewRectAfterHide()) {
+    return 103;
   }
 
   if (!AnnotateWindowHasButton(L"Oval")) {

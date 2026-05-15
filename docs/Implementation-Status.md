@@ -49,6 +49,13 @@ tracked documentation.
   - The artifact toolbar uses a tested compact width budget and no longer relies
     on a fixed 366px toolbar width.
   - `snappin_tests` covers the default artifact toolbar width budget.
+  - Capture overlay reopen resets stale selection/hover state and refreshes the
+    window region before showing, so the next capture session does not reveal
+    the previous session position first.
+  - `snappin_tests` covers overlay reopen at a new window rect after hide, and
+    `ui_capture_smoke` launches the real app, routes the capture command through
+    the hidden main window, verifies the overlay is visible with valid bounds,
+    then exits it with `Esc`.
 - Mark session interaction:
   - `Mark` opens annotate inside active capture context without dismissing capture.
   - `Range` button and `R` shortcut re-enter selection in the same capture session.

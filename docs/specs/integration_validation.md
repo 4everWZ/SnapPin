@@ -19,6 +19,10 @@ tracked content, tracked file names, commit messages, ref names, or reachable
 repository history contain forbidden reference terms. Keep source URLs in
 ignored local notes only.
 
+`ctest` also includes `ui_capture_smoke`, which launches the built app, sends
+the capture command through the hidden main window, verifies the capture overlay
+is visible with valid bounds, and exits the overlay with `Esc`.
+
 Completion gate:
 
 - Build succeeds.
@@ -26,12 +30,15 @@ Completion gate:
 - Forbidden reference terms do not appear in tracked files, tracked file names,
   commit messages, ref names, or reachable history.
 - Built `snappin.exe` can launch and remain running long enough for a basic smoke check.
+- The process-level UI smoke can open and dismiss the capture overlay.
 
 ## Manual Workflow Checklist
 
 Capture and artifact:
 
 - `Ctrl+1` opens capture overlay.
+- Reopening capture after a prior cancel/exit does not flash stale previous
+  capture position or selection state.
 - Selection highlight and final capture area match.
 - Artifact toolbar remains compact and does not affect the captured bitmap dimensions.
 - Toolbar actions `Copy`, `Save`, `Pin`, `Mark`, `Close` behave as expected.
