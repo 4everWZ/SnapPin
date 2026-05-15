@@ -43,14 +43,25 @@ public static class SnapPinSmokeNative {
 
   [DllImport("user32.dll", SetLastError = true)]
   public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+  [DllImport("user32.dll", SetLastError = true)]
+  public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+  [DllImport("user32.dll", SetLastError = true)]
+  public static extern bool SetCursorPos(int X, int Y);
 }
 "@
 
 $WM_CLOSE = 0x0010
 $WM_COMMAND = 0x0111
 $WM_KEYDOWN = 0x0100
+$WM_MOUSEMOVE = 0x0200
+$WM_LBUTTONDOWN = 0x0201
+$WM_LBUTTONUP = 0x0202
 $VK_ESCAPE = 0x1B
+$MK_LBUTTON = 0x0001
 $CaptureCommand = 1000
+$MaxCompactToolbarWidth = 320
 
 function Find-WindowByClassForProcess {
   param(
@@ -109,11 +120,118 @@ function Wait-WindowForProcess {
   throw "Timed out waiting for $ClassName."
 }
 
+function New-LParam {
+  param(
+    [int]$X,
+    [int]$Y
+  )
+
+  $packed = (($Y -band 0xffff) -shl 16) -bor ($X -band 0xffff)
+  return [IntPtr]$packed
+}
+
+function Read-WindowRect {
+  param([IntPtr]$Window)
+
+  $rect = [SnapPinSmokeNative+RECT]::new()
+  if (-not [SnapPinSmokeNative]::GetWindowRect($Window, [ref]$rect)) {
+    throw "Failed to read window bounds."
+  }
+  return $rect
+}
+
+function Assert-PositiveBounds {
+  param(
+    [SnapPinSmokeNative+RECT]$Rect,
+    [string]$Name
+  )
+
+  $width = $Rect.Right - $Rect.Left
+  $height = $Rect.Bottom - $Rect.Top
+  if ($width -le 0 -or $height -le 0) {
+    throw "$Name bounds are invalid: ${width}x${height}."
+  }
+}
+
+function Initialize-SmokeConfig {
+  param([string]$ExeDir)
+
+  $portableFlag = Join-Path $ExeDir "portable.flag"
+  $dataDir = Join-Path $ExeDir "SnapPinData"
+  $markerPath = Join-Path $dataDir ".ui-smoke-owned"
+  $createdPortableFlag = -not (Test-Path -LiteralPath $portableFlag)
+  $dataDirExists = Test-Path -LiteralPath $dataDir
+
+  if ($dataDirExists -and -not (Test-Path -LiteralPath $markerPath)) {
+    throw "Refusing to use existing portable data directory without smoke marker: $dataDir"
+  }
+
+  if ($createdPortableFlag) {
+    [void](New-Item -ItemType File -Path $portableFlag -Force)
+  }
+
+  $configDir = Join-Path $dataDir "config"
+  [void](New-Item -ItemType Directory -Path $configDir -Force)
+  [void](New-Item -ItemType File -Path $markerPath -Force)
+
+  $configPath = Join-Path $configDir "config.json"
+  $configJson = @'
+{
+  "hotkeys": {
+    "enabled": false
+  },
+  "capture": {
+    "auto_copy_to_clipboard": false,
+    "auto_show_toolbar": true
+  },
+  "export": {
+    "open_folder_after_save": false
+  }
+}
+'@
+  Set-Content -LiteralPath $configPath -Value $configJson -Encoding UTF8 -NoNewline
+
+  return @{
+    PortableFlag = $portableFlag
+    DataDir = $dataDir
+    MarkerPath = $markerPath
+    CreatedPortableFlag = $createdPortableFlag
+  }
+}
+
+function Remove-SmokeConfig {
+  param([hashtable]$ConfigState)
+
+  if (-not $ConfigState) {
+    return
+  }
+
+  $dataDir = [string]$ConfigState.DataDir
+  $markerPath = [string]$ConfigState.MarkerPath
+  if ((Test-Path -LiteralPath $markerPath) -and (Test-Path -LiteralPath $dataDir)) {
+    $resolvedDataDir = (Resolve-Path -LiteralPath $dataDir).Path
+    $resolvedExeDir = (Resolve-Path -LiteralPath (Split-Path -Path $dataDir -Parent)).Path
+    $prefix = $resolvedExeDir.TrimEnd('\') + '\'
+    if (-not $resolvedDataDir.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+      throw "Refusing to remove smoke data outside executable directory: $resolvedDataDir"
+    }
+    Remove-Item -LiteralPath $resolvedDataDir -Recurse -Force
+  }
+
+  if ([bool]$ConfigState.CreatedPortableFlag -and
+      (Test-Path -LiteralPath ([string]$ConfigState.PortableFlag))) {
+    Remove-Item -LiteralPath ([string]$ConfigState.PortableFlag) -Force
+  }
+}
+
 $resolvedAppPath = (Resolve-Path -LiteralPath $AppPath).Path
+$appDir = Split-Path -Path $resolvedAppPath -Parent
 $process = $null
 $mainWindow = [IntPtr]::Zero
+$smokeConfig = $null
 
 try {
+  $smokeConfig = Initialize-SmokeConfig -ExeDir $appDir
   $process = Start-Process -FilePath $resolvedAppPath -PassThru -WindowStyle Hidden
 
   $mainWindow = Wait-WindowForProcess -ClassName "SnapPinHiddenWindow" -Process $process
@@ -122,15 +240,61 @@ try {
   }
 
   $overlayWindow = Wait-WindowForProcess -ClassName "SnapPinOverlay" -Process $process -Visible
-  $rect = [SnapPinSmokeNative+RECT]::new()
-  if (-not [SnapPinSmokeNative]::GetWindowRect($overlayWindow, [ref]$rect)) {
-    throw "Failed to read overlay bounds."
+  $overlayRect = Read-WindowRect -Window $overlayWindow
+  Assert-PositiveBounds -Rect $overlayRect -Name "Overlay"
+
+  $overlayWidth = $overlayRect.Right - $overlayRect.Left
+  $overlayHeight = $overlayRect.Bottom - $overlayRect.Top
+  $startClientX = [Math]::Min(80, [Math]::Max(10, [int]($overlayWidth / 4)))
+  $startClientY = [Math]::Min(80, [Math]::Max(10, [int]($overlayHeight / 4)))
+  $endClientX = [Math]::Min($overlayWidth - 20, $startClientX + 160)
+  $endClientY = [Math]::Min($overlayHeight - 20, $startClientY + 120)
+  if ($endClientX -le $startClientX -or $endClientY -le $startClientY) {
+    throw "Overlay is too small for drag selection."
   }
 
-  $width = $rect.Right - $rect.Left
-  $height = $rect.Bottom - $rect.Top
-  if ($width -le 0 -or $height -le 0) {
-    throw "Overlay bounds are invalid: ${width}x${height}."
+  [void][SnapPinSmokeNative]::SetCursorPos($overlayRect.Left + $startClientX,
+                                           $overlayRect.Top + $startClientY)
+  [void][SnapPinSmokeNative]::SendMessage(
+      $overlayWindow, $WM_LBUTTONDOWN, [IntPtr]$MK_LBUTTON,
+      (New-LParam -X $startClientX -Y $startClientY))
+  [void][SnapPinSmokeNative]::SetCursorPos($overlayRect.Left + $endClientX,
+                                           $overlayRect.Top + $endClientY)
+  [void][SnapPinSmokeNative]::SendMessage(
+      $overlayWindow, $WM_MOUSEMOVE, [IntPtr]$MK_LBUTTON,
+      (New-LParam -X $endClientX -Y $endClientY))
+  [void][SnapPinSmokeNative]::SendMessage(
+      $overlayWindow, $WM_LBUTTONUP, [IntPtr]::Zero,
+      (New-LParam -X $endClientX -Y $endClientY))
+
+  $toolbarWindow = Wait-WindowForProcess -ClassName "SnapPinToolbar" -Process $process -Visible
+  $toolbarRect = Read-WindowRect -Window $toolbarWindow
+  Assert-PositiveBounds -Rect $toolbarRect -Name "Toolbar"
+  $toolbarWidth = $toolbarRect.Right - $toolbarRect.Left
+  if ($toolbarWidth -gt $MaxCompactToolbarWidth) {
+    throw "Toolbar is wider than the compact budget: $toolbarWidth."
+  }
+
+  if (-not [SnapPinSmokeNative]::PostMessage($toolbarWindow, $WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero)) {
+    throw "Failed to post close to toolbar."
+  }
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  do {
+    if ($process.HasExited) {
+      break
+    }
+    if (-not [SnapPinSmokeNative]::IsWindowVisible($toolbarWindow) -and
+        -not [SnapPinSmokeNative]::IsWindowVisible($overlayWindow)) {
+      break
+    }
+    Start-Sleep -Milliseconds 100
+  } while ((Get-Date) -lt $deadline)
+
+  if (-not $process.HasExited -and
+      ([SnapPinSmokeNative]::IsWindowVisible($toolbarWindow) -or
+       [SnapPinSmokeNative]::IsWindowVisible($overlayWindow))) {
+    throw "Capture artifact UI remained visible after toolbar close."
   }
 
   if (-not [SnapPinSmokeNative]::PostMessage($overlayWindow, $WM_KEYDOWN, [IntPtr]$VK_ESCAPE, [IntPtr]::Zero)) {
@@ -161,4 +325,5 @@ try {
       $process.WaitForExit()
     }
   }
+  Remove-SmokeConfig -ConfigState $smokeConfig
 }

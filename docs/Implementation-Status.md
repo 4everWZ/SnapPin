@@ -54,8 +54,9 @@ tracked documentation.
     the previous session position first.
   - `snappin_tests` covers overlay reopen at a new window rect after hide, and
     `ui_capture_smoke` launches the real app, routes the capture command through
-    the hidden main window, verifies the overlay is visible with valid bounds,
-    then exits it with `Esc`.
+    the hidden main window, drag-selects a real capture region, verifies the
+    compact artifact toolbar is visible with valid bounds, then closes the
+    capture artifact UI.
 - Mark session interaction:
   - `Mark` opens annotate inside active capture context without dismissing capture.
   - `Range` button and `R` shortcut re-enter selection in the same capture session.
